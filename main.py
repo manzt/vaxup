@@ -1,7 +1,7 @@
-import pandas as pd
+import csv
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-
 
 COLUMNS = {
     "Location": "location",
@@ -30,34 +30,12 @@ COLUMNS = {
 }
 
 
-def read(path: str) -> pd.DataFrame:
-    if path.endswith(".csv"):
-        df = pd.read_csv(path)
-    else:
-        df = pd.read_excel(path)
-    return df.rename(columns=COLUMNS)
-
-
-def elgibility(driver):
-    expand = expand_root_element(driver)
-
-    root = expand(driver.find_element(By.TAG_NAME, "c-vcms-schedule-flow"))
-    section = expand(
-        root.find_element(By.TAG_NAME, "c-vcm-screening-questions-section-a")
-    )
-    # Question 1
-    section.find_element(By.TAG_NAME, "lightning-input").click()
-
-    # Question 2
-    yes, no = expand(
-        section.find_element(By.TAG_NAME, "lightning-radio-group")
-    ).find_elements(By.CSS_SELECTOR, "fieldset > div > span")
-    no.click()
-
-    # Question 3
-    dob = expand(section.find_elements(By.TAG_NAME, "lightning-input")[1]).find_element(
-        By.TAG_NAME, "input"
-    )
+def ensure_mmddyyyy(date):
+    m, d, y = date.split("/")
+    m = m if len(m) == 2 else "0" + m
+    d = d if len(d) == 2 else "0" + d
+    y = y if len(y) == 4 else "19" + y
+    return "/".join([m, d, y])
 
 
 def parse_args():
@@ -68,51 +46,34 @@ def parse_args():
     return parser.parse_args()
 
 
-def expand_root_element(driver):
-    return lambda el: driver.execute_script("return arguments[0].shadowRoot", el)
-
-
-if __name__ == "__main__":
-    # args = parse_args()
-    driver = webdriver.Chrome()
+def run(driver, **entry):
     driver.get("https://vax4nyc.nyc.gov/patient/s/vaccination-schedule")
     driver.implicitly_wait(15)
 
-    dob = "07/07/1994"
-    zip_code = "10001"
+    # CSS / TAG selectors don't work because elements are web-components and
+    # hidden due to shadow DOM. For some reason XPATH selectors _do_ work...
 
     # Question 1: "I affirm that I qualify for one of the following ..."
-    driver.find_element(
-        By.XPATH,
-        '//*[@id="main-content-0"]/div/div[3]/div/div/c-vcms-schedule-flow/main/div[2]/section[1]/div/section/c-vcm-screening-questions-section-a/div/div/div[1]/div/ul/li/span[1]/div/lightning-input/div/span',
-    ).click()
-
+    driver.find_element(By.XPATH, "//label[@for='checkbox-11']").click()
     # Question 2: "Are you an employee of the City of New York" (No)
-    driver.find_element(
-        By.XPATH,
-        "/html/body/div[5]/div/div[3]/div/div/c-vcms-schedule-flow/main/div[2]/section[1]/div/section/c-vcm-screening-questions-section-a/div/div/div[2]/div/lightning-radio-group/fieldset/div/span[2]/label",
-    ).click()
-
+    driver.find_element(By.XPATH, "//label[@for='radio-1-4']").click()
     # Question 3: DOB
-    driver.find_element(
-        By.XPATH,
-        "/html/body/div[5]/div/div[3]/div/div/c-vcms-schedule-flow/main/div[2]/section[1]/div/section/c-vcm-screening-questions-section-a/div/div/div[3]/lightning-input[1]/lightning-datepicker/div/div/input",
-    ).send_keys("07/07/1994")
-
+    driver.find_element(By.XPATH, "//input[@id='input-6']").send_keys(entry["dob"])
     # Question 4: Zip Code
-    driver.find_element(
-        By.XPATH,
-        "/html/body/div[5]/div/div[3]/div/div/c-vcms-schedule-flow/main/div[2]/section[1]/div/section/c-vcm-screening-questions-section-a/div/div/div[3]/lightning-input[2]/div/input",
-    ).send_keys(zip_code)
-
-    # Question 4: Zip Code
-    driver.find_element(
-        By.XPATH,
-        "/html/body/div[5]/div/div[3]/div/div/c-vcms-schedule-flow/main/div[2]/section[1]/div/section/c-vcm-screening-questions-section-a/div/div/div[3]/lightning-input[2]/div/input",
-    ).send_keys(zip_code)
-
+    driver.find_element(By.XPATH, "//input[@id='input-9']").send_keys(entry["zip_code"])
     # Question 5: "I hereby certify under penalty of law that I live in New York City..." (Yes)
-    driver.find_element(
-        By.XPATH,
-        "/html/body/div[5]/div/div[3]/div/div/c-vcms-schedule-flow/main/div[2]/section[1]/div/section/c-vcm-screening-questions-section-a/div/div/div[4]/div/lightning-radio-group/fieldset/div/span[1]/label",
-    ).click()
+    driver.find_element(By.XPATH, "//label[@for='radio-0-10']").click()
+
+
+def main():
+    args = parse_args()
+    driver = webdriver.Chrome()
+    with open(args.file, mode="r") as f:
+        for entry in csv.DictReader(f):
+            entry = {COLUMNS.get(k, v): v for k, v in entry.items()}
+            entry["dob"] = ensure_mmddyyyy(entry["dob"])
+            run(driver, **entry)
+
+
+if __name__ == "__main__":
+    main()
