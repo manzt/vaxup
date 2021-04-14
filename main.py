@@ -1,4 +1,5 @@
 import csv
+from dataclasses import dataclass
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -32,21 +33,45 @@ COLUMNS = {
 
 def ensure_mmddyyyy(date):
     m, d, y = date.split("/")
-    m = m if len(m) == 2 else "0" + m
-    d = d if len(d) == 2 else "0" + d
-    y = y if len(y) == 4 else "19" + y
-    return "/".join([m, d, y])
+    return "/".join(
+        [
+            m if len(m) == 2 else "0" + m,
+            d if len(d) == 2 else "0" + d,
+            y if len(y) == 4 else "19" + y,
+        ]
+    )
 
 
-def parse_args():
-    import argparse
+@dataclass
+class FormEntry:
+    location: str
+    start_time: str
+    first_name: str
+    last_name: str
+    dob: str
+    age: int
+    email: str
+    phone: str
+    street_adress: str
+    city: str
+    state: str
+    zip_code: str
+    race: str
+    identify_as_hispanic_latino_latina: str
+    sex: str
+    has_health_insurance: str
+    insurance_type: str
+    insurance_company: str
+    insurance_number: str
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("file")
-    return parser.parse_args()
+    @classmethod
+    def from_csv_dict(cls, entry):
+        fields = {COLUMNS[k]: v for k, v in entry.items() if k in COLUMNS}
+        fields["dob"] = ensure_mmddyyyy(fields["dob"])
+        return cls(**fields)
 
 
-def run(driver, **entry):
+def run(driver, entry: FormEntry):
     driver.get("https://vax4nyc.nyc.gov/patient/s/vaccination-schedule")
     driver.implicitly_wait(15)
 
@@ -58,21 +83,27 @@ def run(driver, **entry):
     # Question 2: "Are you an employee of the City of New York" (No)
     driver.find_element(By.XPATH, "//label[@for='radio-1-4']").click()
     # Question 3: DOB
-    driver.find_element(By.XPATH, "//input[@id='input-6']").send_keys(entry["dob"])
+    driver.find_element(By.XPATH, "//input[@id='input-6']").send_keys(entry.dob)
     # Question 4: Zip Code
-    driver.find_element(By.XPATH, "//input[@id='input-9']").send_keys(entry["zip_code"])
+    driver.find_element(By.XPATH, "//input[@id='input-9']").send_keys(entry.zip_code)
     # Question 5: "I hereby certify under penalty of law that I live in New York City..." (Yes)
     driver.find_element(By.XPATH, "//label[@for='radio-0-10']").click()
+
+
+def parse_args():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file")
+    return parser.parse_args()
 
 
 def main():
     args = parse_args()
     driver = webdriver.Chrome()
     with open(args.file, mode="r") as f:
-        for entry in csv.DictReader(f):
-            entry = {COLUMNS.get(k, v): v for k, v in entry.items()}
-            entry["dob"] = ensure_mmddyyyy(entry["dob"])
-            run(driver, **entry)
+        for row in csv.DictReader(f):
+            run(driver, FormEntry.from_csv_dict(row))
 
 
 if __name__ == "__main__":
