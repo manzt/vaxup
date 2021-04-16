@@ -1,3 +1,5 @@
 /.vscode
 /Example Data.xlsx
 /index.html
+__pycache__
+*.egg-info
