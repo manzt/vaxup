@@ -22,10 +22,8 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     python_requires=">=3.7",
-    install_requires=[
-        "selenium>=3.141.0",
-    ],
+    install_requires=["selenium>=3.141.0", "rich>=9.13.0"],
     entry_points={
-        "console_scripts": ["vaxup=vaxup.main:main"],
+        "console_scripts": ["vaxup=vaxup.cli:main"],
     },
 )
