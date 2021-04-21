@@ -12,7 +12,7 @@ COLUMN_MAPPING = {
     "Age": "age",
     "Email": "email",
     "Phone": "phone",
-    "Street address (e.g., 60 Madison Ave.)": "street_adress",
+    "Street address (e.g., 60 Madison Ave.)": "street_address",
     "City (e.g., Queens)": "city",
     "State (e.g., NY)": "state",
     "Zip code (e.g., 10010)": "zip_code",
