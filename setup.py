@@ -13,16 +13,18 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/manzt/vaxup",
     classifiers=[
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     packages=setuptools.find_packages(),
     python_requires=">=3.7",
-    install_requires=["selenium>=3.141.0", "rich>=9.13.0"],
+    install_requires=[
+        "selenium>=3.141.0",
+        "rich>=9.13.0",
+        "pandas>=1.2.4",
+        "openpyxl>=3.0.7",
+    ],
     entry_points={
         "console_scripts": ["vaxup=vaxup.main:main"],
     },
