@@ -1,11 +1,10 @@
-from typing import List
-from itertools import groupby
+from typing import Iterable
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from vaxup.data import FormEntry, Location
+from vaxup.data import FormEntry, Location, group_entries
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
@@ -57,7 +56,7 @@ class AuthorizedEnroller:
 
         raise ValueError("Failed to find time.")
 
-    def _click_next(self, first=False):
+    def _click_next(self, first: bool = False):
         path = "//section/button"
         self._find_element(path if first else f"{path}[2]").click()
 
@@ -142,9 +141,9 @@ class AuthorizedEnroller:
 
         # return get_appt_number(driver)
 
-    def schedule_appointments(self, entries: List[FormEntry]):
-        sorted_entries = sorted(entries, key=lambda e: e.location.value)
-        for location, appts in groupby(sorted_entries, key=lambda e: e.location):
+    def schedule_appointments(self, entries: Iterable[FormEntry]):
+        for location, appointments in group_entries(entries=entries):
+            # Need to re-login per location
             self._login(location=location)
-            for appt in appts:
-                print(appt)
+            for entry in appointments:
+                print(entry)

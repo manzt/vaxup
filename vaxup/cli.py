@@ -24,12 +24,14 @@ def check(reader: AcuityExportReader, console: Console, verbose: bool):
         except ValidationError as e:
             errors.append(FormError.from_err(e, record))
     if len(errors) == 0:
-        console.log("[bold green]All entries passed validation!")
+        console.print("[bold green]All entries passed validation!")
     else:
-        console.log("[bold red]Several errors cannot be resolved.")
+        console.print(
+            f"[bold yellow]Form errors in {len(errors)} of {len(reader)} entries."
+        )
         if verbose:
             for err in errors:
-                console.log(err)
+                console.print(err)
 
 
 def main():
