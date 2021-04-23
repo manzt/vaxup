@@ -1,3 +1,4 @@
+from vaxup.web import AuthorizedEnroller
 from pydantic import ValidationError
 from rich.console import Console
 
@@ -23,12 +24,11 @@ def check(reader: AcuityExportReader, console: Console, verbose: bool):
             entries.append(entry)
         except ValidationError as e:
             errors.append(FormError.from_err(e, record))
+
     if len(errors) == 0:
         console.print("[bold green]All entries passed validation!")
     else:
-        console.print(
-            f"[bold yellow]Form errors in {len(errors)} of {len(reader)} entries."
-        )
+        console.print(f"[bold yellow]Form errors in {len(errors)} of {1} entries.")
         if verbose:
             for err in errors:
                 console.print(err)
@@ -44,28 +44,16 @@ def main():
     if args.check:
         check(reader=reader, console=console, verbose=args.verbose)
     else:
+        entries = [FormEntry(**record) for record in reader]
+
         console.print("Please enter your login")
         username = console.input("[blue]Username[/blue]: ")
         password = console.input("[blue]Password[/blue]: ", password=True)
 
         try:
-            with console.status(
-                "[magenta]Logging into your account...", spinner="earth"
-            ) as status:
-
-                console.log("Login sucessful.")
-
-                status.update(
-                    status=f"[yellow]Registering applicants...[/yellow]",
-                    spinner="bouncingBall",
-                    spinner_style="yellow",
-                )
-
-                # number = run(driver=driver, entry=entry)
-                # console.log(f"Registered: {number}")
-                # driver.get(URL)
-                # sleep(10)
-
+            with console.status("Initialing web-driver...") as status:
+                enroller = AuthorizedEnroller(username, password)
+                enroller.schedule_appointments(entries=entries, status=status)
             # console.print(f"[bold green]Registered {total} applicants successfully")
 
         except Exception as e:

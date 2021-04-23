@@ -192,6 +192,9 @@ class AcuityExportReader:
         data = self._ws.values
         headers = next(data)
         for row in data:
+            if all(i is None for i in row):
+                # empty row
+                continue
             # Rename and pick fields
             record = {COLUMNS[k]: v for k, v in zip(headers, row) if k in COLUMNS}
             # Cast string / answer fields to corresponding Enum or bool

@@ -1,8 +1,10 @@
 from typing import Iterable
+from time import sleep
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.keys import Keys
 
 from vaxup.data import FormEntry, Location, group_entries
 
@@ -43,10 +45,16 @@ class AuthorizedEnroller:
         self._find_element(f"//lightning-button[@data-id='{location.value}']").click()
 
     def _select_date(self, date: str, time: str):
-        # TODO: check if current date matches?
+        get = lambda driver: driver.find_element(
+            By.XPATH, "//c-vcms-book-appointment/article/div[4]/div[2]"
+        ).text
+
         date_picker = self._find_element("//input[@name='scheduleDate']")
-        print(date)
-        print("TODO, check date: " + date_picker.get_attribute("value"))
+        date_picker.clear()
+        date_picker.send_keys(date)
+        date_picker.send_keys(Keys.RETURN)
+
+        WebDriverWait(self.driver, 10).until(lambda d: get(d) == date)
 
         # Find time slot and click
         for el in self.driver.find_elements(By.XPATH, "//lightning-formatted-time"):
@@ -80,8 +88,12 @@ class AuthorizedEnroller:
         find_input("dateOfBirth").send_keys(entry.dob_str)
         find_input("email").send_keys(entry.email)
         find_input("street").send_keys(entry.street_address)
-        find_input("city").send_key(entry.city)
         find_input("zip").send_keys(entry.zip_code)
+
+        # Need to clear "NYC"
+        el = find_input("city")
+        el.clear()
+        el.send_keys(entry.city)
 
         # Optional
         if entry.phone:
@@ -110,18 +122,18 @@ class AuthorizedEnroller:
         find_checkbox(entry.race.value).click()
 
     def _health_insurance(self, has_health_insurance: bool):
+        tmp = "//input[@name='{}' and @value='{}']/following-sibling::label"
         if has_health_insurance:
-            # TODO: fill health insurance if available
-            self._find_element("//input[@value='No']/following-sibling::label").click()
+            self._find_element(tmp.format("haveInsurance", "Yes")).click()
+            self._find_element(tmp.format("insuranceInformation", "No")).click()
         else:
-            # Click "NO"
-            self._find_element("//input[@value='No']/following-sibling::label").click()
+            self._find_element(tmp.format("haveInsurance", "No")).click()
 
     def _get_appt_number(self):
         el = self._find_element("//*[contains(text(),'Appointment #')]")
         return el.text.lstrip("Appointment #:")
 
-    def _register(self, entry: FormEntry):
+    def _register(self, entry: FormEntry, submit: bool = True):
         self._select_date(date=entry.date_str, time=entry.time_str)
         self._click_next(first=True)
 
@@ -134,16 +146,30 @@ class AuthorizedEnroller:
         self._fill_personal_information(entry=entry)
         self._click_next()
 
-        self._health_insurance()
+        self._health_insurance(has_health_insurance=entry.has_health_insurance)
 
         # Submit
-        # click_next(driver)
+        if submit:
+            self._click_next()
+            return self._get_appt_number()
 
-        # return get_appt_number(driver)
-
-    def schedule_appointments(self, entries: Iterable[FormEntry]):
+    def schedule_appointments(self, entries: Iterable[FormEntry], status=None):
         for location, appointments in group_entries(entries=entries):
+            if status:
+                status.update(
+                    f"[magenta]Logging into {location.name} for {self._username}...",
+                    spinner="earth",
+                )
             # Need to re-login per location
-            self._login(location=location)
+            self._login()
+            self._select_location(location=location)
+            if status:
+                status.update(
+                    status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
+                    spinner="bouncingBall",
+                    spinner_style="yellow",
+                )
             for entry in appointments:
-                print(entry)
+                appt_num = self._register(entry=entry, submit=True)
+                print(appt_num)
+                sleep(10)
