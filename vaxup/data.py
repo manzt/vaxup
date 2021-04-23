@@ -1,8 +1,12 @@
+import re
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import List, Literal, Optional, Tuple
 
-import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError, validator
+from openpyxl import load_workbook
+from rich import inspect
 
 COLUMNS = {
     "Start Time": "start_time",
@@ -12,73 +16,16 @@ COLUMNS = {
     "Email": "email",
     "Calendar": "location",
     "Date of birth (M/DD/YYYY)": "dob",
-    "Street address (e.g., 60 Madison Ave.)": "street",
+    "Street address (e.g., 60 Madison Ave.)": "street_address",
     "Apt / suite number": "apt",
     "City (e.g., Queens)": "city",
     "State (e.g., NY)": "state",
     "Zip code (e.g., 10010)": "zip_code",
     "Which race do you identify as?": "race",
-    "Do you identify as Hispanic, Latino, or Latina?": "identify_as_hispanic",
+    "Do you identify as Hispanic, Latino, or Latina?": "ethnicity",
     "What sex were you assigned at birth?": "sex",
     "COVID-19 vaccines are free for you and we will not be billing your insurance. For informational purposes, do you have health insurance?": "has_health_insurance",
-}
-
-STATES = {
-    "AL",
-    "AK",
-    "AS",
-    "AZ",
-    "AR",
-    "CA",
-    "CO",
-    "CT",
-    "DE",
-    "DC",
-    "FL",
-    "GA",
-    "HI",
-    "ID",
-    "IL",
-    "IN",
-    "IA",
-    "KS",
-    "KY",
-    "LA",
-    "ME",
-    "MH",
-    "MD",
-    "MA",
-    "MI",
-    "MN",
-    "MS",
-    "MO",
-    "MT",
-    "NE",
-    "NV",
-    "NH",
-    "NJ",
-    "NM",
-    "NY",
-    "NC",
-    "ND",
-    "MP",
-    "OH",
-    "OK",
-    "OR",
-    "PA",
-    "PR",
-    "RI",
-    "SC",
-    "SD",
-    "TN",
-    "TX",
-    "UT",
-    "VT",
-    "VA",
-    "WA",
-    "WV",
-    "WI",
-    "WY",
+    "Have you ever had a serious or life-threatening allergic reaction, such as hives or difficulty breathing, to a previous dose of COVID-19 vaccine or any component of the vaccine?  IF YES, DO NOT SCHEDULE given you are not eligible to receive the vaccine.": "is_allergic",
 }
 
 
@@ -90,13 +37,14 @@ class Location(Enum):
 
     @classmethod
     def from_str(cls, v: str):
-        if v == "CHN Vaccination Site: Church of God (East NY)":
+        v = v.lower()
+        if "east ny" in v:
             return cls.EAST_NY
-        if v == "CHN Vaccination Site: Convent Baptist (Harlem)":
+        if "harlem" in v:
             return cls.HARLEM
-        if v == "CHN Vaccination Site: Fort Washington (Washington Heights)":
+        if "washington heights" in v:
             return cls.WASHINGTON_HEIGHTS
-        if v == "CHN Vaccination Site: New Jerusalem (South Jamaica)":
+        if "south jamaica":
             return cls.SOUTH_JAMAICA
         raise ValueError(f"Location not identified, got {v}")
 
@@ -164,75 +112,112 @@ class Ethnicity(Enum):
 
 
 class FormEntry(BaseModel):
-    date: str
-    time: str
+    start_time: datetime
     first_name: str
     last_name: str
     phone: Optional[str]
     email: str
     location: Location
-    dob: str
-    street: str
+    dob: datetime
+    street_address: str
     city: str
-    state: str
+    state: Literal["NY", "NJ"]
     apt: Optional[str]
     zip_code: int
     race: Race
     ethnicity: Ethnicity
     sex: Sex
     has_health_insurance: bool
+    is_allergic: Literal[False]
+
+    @property
+    def date_str(self):
+        return self.start_time.strftime("%m/%d/%Y")
+
+    @property
+    def time_str(self):
+        return self.start_time.strftime("%I:%M %p")
+
+    @property
+    def dob_str(self):
+        return self.dob.strftime("%m/%d/%Y")
+
+    @validator("phone")
+    def fix_phone(cls, v):
+        # remove non numeric characters
+        v = re.sub(r"[^0-9]+", "", str(v))
+        # get last 10 digits (or less)
+        v = v[-10:]
+        return v if len(v) == 10 else None
+
+
+def cast_state(v: str):
+    upper = str(v).strip().upper()
+    if upper in {"NJ", "NY"}:
+        return upper
+    if "YORK" in upper:
+        return "NY"
+    if "JERSEY" in upper:
+        return "NJ"
+    return v
+
+
+@dataclass
+class FormError:
+    date: datetime
+    errors: List[Tuple[str, str]]
 
     @classmethod
-    def from_df_record(cls, r) -> "FormEntry":
-        r = r.copy()
-        answer = r.pop("identify_as_hispanic")
-        update = dict(
-            location=Location.from_str(r["location"]),
-            ethnicity=Ethnicity.from_answer(answer),
-            sex=Sex.from_str(r["sex"]),
-            race=Race.from_str(r["race"]),
-        )
-        return cls(**{**r, **update})
+    def from_err(cls, e, record):
+        errors = []
+        for err in e.errors():
+            field = err["loc"][0]
+            errors.append({field: record[field]})
+        date = str(record["start_time"])
+        return cls(date=date, errors=errors)
 
 
-def clean_phone_numbers(phone: pd.Series) -> pd.Series:
-    # cast to string
-    phone = phone.astype("string")
-    # remove non numeric characters
-    phone = phone.str.replace(r"[^0-9]+", "", regex=True)
-    # get last 10 digits (or less)
-    phone = phone.str[-10:]
-    return phone
-
-
-def read_excel(path: str) -> pd.DataFrame:
-    # Read XLS & rename columns
-    df = pd.read_excel(path).rename(columns=COLUMNS)[COLUMNS.values()]
-
-    # Split datetime into date & time strings that correspond to inputs
-    df["date"] = df.start_time.dt.strftime("%m/%d/%Y")
-    df["time"] = df.start_time.dt.strftime("%I:%M %p")
-    df.drop(columns="start_time", inplace=True)
-
-    # Phones are string of length 10 or less
-    df.phone = clean_phone_numbers(df.phone)
-
-    # Unrecognized dates coerced to null
-    df.dob = pd.to_datetime(df.dob, errors="coerce").dt.strftime("%m/%d/%Y")
-
-    # Cast to bool
-    df.has_health_insurance = df.has_health_insurance.str.lower() == "yes"
-
-    return df.where(pd.notnull(df), None)
-
-
-class FormReader:
+class Reader:
     def __init__(self, path: str):
-        self._df = read_excel(path)
+        wb = load_workbook(path)
+        self.name = wb.sheetnames[0]
+        self._ws = wb[self.name]
 
     def __iter__(self):
-        for record in self._df.to_dict(orient="records"):
-            yield FormEntry.from_df_record(record)
+        data = self._ws.values
+        headers = next(data)
+        for row in data:
+            # Rename and pick fields
+            record = {COLUMNS[k]: v for k, v in zip(headers, row) if k in COLUMNS}
+            # Cast string / answer fields to corresponding Enum or bool
+            yield record | {
+                "location": Location.from_str(record["location"]),
+                "race": Race.from_str(record["race"]),
+                "sex": Sex.from_str(record["sex"]),
+                "ethnicity": Ethnicity.from_answer(record["ethnicity"]),
+                "has_health_insurance": record["has_health_insurance"] == "yes",
+                "state": cast_state(record["state"]),
+                "is_allergic": record["is_allergic"] == "yes",
+            }
 
     def __len__(self):
-        return len(self._df)
+        data = self._ws.values
+        next(data)
+        return sum(1 for _ in data)
+
+
+if __name__ == "__main__":
+    import sys
+
+    from openpyxl import load_workbook
+    from rich.console import Console
+
+    console = Console()
+    entries = []
+    for record in Reader(sys.argv[1]):
+        try:
+            entry = FormEntry(**record)
+            entries.append(entry)
+        except ValidationError as e:
+            console.log(FormError.from_err(e, record))
+    inspect(entries[-1])

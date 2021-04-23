@@ -22,7 +22,7 @@ setuptools.setup(
     install_requires=[
         "selenium>=3.141.0",
         "rich>=9.13.0",
-        "pandas>=1.2.4",
+        "pydantic>=1.8.1",
         "openpyxl>=3.0.7",
     ],
     entry_points={
