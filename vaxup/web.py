@@ -45,16 +45,21 @@ class AuthorizedEnroller:
         self._find_element(f"//lightning-button[@data-id='{location.value}']").click()
 
     def _select_date(self, date: str, time: str):
-        get = lambda driver: driver.find_element(
-            By.XPATH, "//c-vcms-book-appointment/article/div[4]/div[2]"
-        ).text
+        # Check if date in middle of page matches our desired date.
+        # If not, we need to input a new timestamp and wait until the server
+        # responds with new options.
+        def date_matches(driver):
+            el = driver.find_element(
+                By.XPATH, "//c-vcms-book-appointment/article/div[4]/div[2]"
+            )
+            return el.text == date
 
-        date_picker = self._find_element("//input[@name='scheduleDate']")
-        date_picker.clear()
-        date_picker.send_keys(date)
-        date_picker.send_keys(Keys.RETURN)
-
-        WebDriverWait(self.driver, 10).until(lambda d: get(d) == date)
+        if not date_matches(self.driver):
+            date_picker = self._find_element("//input[@name='scheduleDate']")
+            date_picker.clear()
+            date_picker.send_keys(date)
+            date_picker.send_keys(Keys.RETURN)
+            WebDriverWait(self.driver, 10).until(date_matches)
 
         # Find time slot and click
         for el in self.driver.find_elements(By.XPATH, "//lightning-formatted-time"):
