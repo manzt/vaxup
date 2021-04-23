@@ -1,3 +1,6 @@
+import argparse
+import sys
+
 from pydantic import ValidationError
 from rich.console import Console
 
@@ -6,12 +9,12 @@ from vaxup.web import AuthorizedEnroller
 
 
 def parse_args():
-    import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("acuity-export")
+    parser.add_argument("file")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
 
@@ -39,17 +42,26 @@ def main():
     args = parse_args()
 
     console.rule(":syringe: vaxup :syringe:")
-    reader = AcuityExportReader(getattr(args, "acuity-export"))
+
+    reader = AcuityExportReader(args.file)
+
     if args.check:
         check(reader=reader, console=console, verbose=args.verbose)
-    else:
+        sys.exit(0)
+
+    try:
         entries = [FormEntry(**record) for record in reader]
+    except ValidationError:
+        console.print("[red bold]Error with Acuity data export[/red bold]")
+        console.print(
+            f" Run [yellow bold]vaxup {args.file} --check[/yellow bold] for help"
+        )
+        sys.exit(1)
 
-        console.print("Please enter your login")
-        username = console.input("[blue]Username[/blue]: ")
-        password = console.input("[blue]Password[/blue]: ", password=True)
+    console.print("Please enter your login")
+    username = console.input("[blue]Username[/blue]: ")
+    password = console.input("[blue]Password[/blue]: ", password=True)
 
-        with console.status("Initialing web-driver..."):
-            enroller = AuthorizedEnroller(username, password)
-        enroller.schedule_appointments(entries=entries, console=console)
-        # console.print(f"[bold green]Registered {total} applicants successfully")
+    with console.status("Initialing web-driver..."):
+        enroller = AuthorizedEnroller(username, password, args.dry_run)
+    enroller.schedule_appointments(entries=entries, console=console)

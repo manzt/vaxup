@@ -17,9 +17,10 @@ TIME_STAMP_XPATH = "//c-vcms-book-appointment/article/div[4]/div[2]"
 
 
 class AuthorizedEnroller:
-    def __init__(self, username: str, password: str):
+    def __init__(self, username: str, password: str, test: bool = False):
         self._username = username
         self._password = password
+        self._test = test
         self.driver = webdriver.Chrome()
 
         # Defaults for driver
@@ -164,7 +165,7 @@ class AuthorizedEnroller:
         self._health_insurance(has_health_insurance=entry.has_health_insurance)
 
         # Submit
-        if submit:
+        if not self._test:
             self._click_next()
             return self._get_appt_number()
 
@@ -185,7 +186,7 @@ class AuthorizedEnroller:
                 )
                 for entry in appointments:
                     try:
-                        appt_num = self._register(entry=entry, submit=False)
+                        appt_num = self._register(entry=entry)
                         console.log(
                             f"[green]Success[/green] - {entry.date_str} @ {entry.time_str} - {appt_num}"
                         )
