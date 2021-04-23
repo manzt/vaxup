@@ -1,15 +1,19 @@
 from typing import Iterable
-from time import sleep
 
+from rich.console import Console
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 from vaxup.data import FormEntry, Location, group_entries
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
+
+
+TIME_STAMP_XPATH = "//c-vcms-book-appointment/article/div[4]/div[2]"
 
 
 class AuthorizedEnroller:
@@ -32,7 +36,7 @@ class AuthorizedEnroller:
     def _find_element(self, xpath: str):
         return self.driver.find_element(By.XPATH, xpath)
 
-    def _login(self):
+    def _login_for(self, location: Location):
         self.driver.get(LOGIN_URL)
         self._find_element("//input[@id='emailAddress-0']").send_keys(self._username)
         self._find_element("//input[@id='loginPassword-0']").send_keys(self._password)
@@ -41,17 +45,21 @@ class AuthorizedEnroller:
             lambda d: d.current_url == URL, "Failed to login."
         )
 
+        self._select_location(location=location)
+        WebDriverWait(self.driver, 15).until(
+            EC.presence_of_element_located((By.XPATH, TIME_STAMP_XPATH)),
+            "Failed to select location.",
+        )
+
     def _select_location(self, location: Location):
         self._find_element(f"//lightning-button[@data-id='{location.value}']").click()
 
     def _select_date(self, date: str, time: str):
-        # Check if date in middle of page matches our desired date.
+        # Checks if date in middle of page matches our desired date.
         # If not, we need to input a new timestamp and wait until the server
         # responds with new options.
         def date_matches(driver):
-            el = driver.find_element(
-                By.XPATH, "//c-vcms-book-appointment/article/div[4]/div[2]"
-            )
+            el = driver.find_element(By.XPATH, TIME_STAMP_XPATH)
             return el.text == date
 
         if not date_matches(self.driver):
@@ -139,6 +147,8 @@ class AuthorizedEnroller:
         return el.text.lstrip("Appointment #:")
 
     def _register(self, entry: FormEntry, submit: bool = True):
+        self.driver.get(URL)
+
         self._select_date(date=entry.date_str, time=entry.time_str)
         self._click_next(first=True)
 
@@ -158,23 +168,29 @@ class AuthorizedEnroller:
             self._click_next()
             return self._get_appt_number()
 
-    def schedule_appointments(self, entries: Iterable[FormEntry], status=None):
-        for location, appointments in group_entries(entries=entries):
-            if status:
+    def schedule_appointments(self, entries: Iterable[FormEntry], console=None):
+        console = console if console else Console(quiet=True)
+        with console.status("Logging in...", spinner="earth") as status:
+            for location, appointments in group_entries(entries=entries):
                 status.update(
                     f"[magenta]Logging into {location.name} for {self._username}...",
                     spinner="earth",
                 )
-            # Need to re-login per location
-            self._login()
-            self._select_location(location=location)
-            if status:
+                # Need to re-login per location
+                self._login_for(location=location)
                 status.update(
                     status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
                     spinner="bouncingBall",
                     spinner_style="yellow",
                 )
-            for entry in appointments:
-                appt_num = self._register(entry=entry, submit=True)
-                print(appt_num)
-                sleep(10)
+                for entry in appointments:
+                    try:
+                        appt_num = self._register(entry=entry, submit=False)
+                        console.log(
+                            f"[green]Success[/green] - {entry.date_str} @ {entry.time_str} - {appt_num}"
+                        )
+                    except Exception as e:
+                        console.log(
+                            f"[red bold]Failure[/red bold] - {entry.date_str} @ {entry.time_str}"
+                        )
+                        console.log(e)

@@ -1,8 +1,8 @@
-from vaxup.web import AuthorizedEnroller
 from pydantic import ValidationError
 from rich.console import Console
 
 from vaxup.data import AcuityExportReader, FormEntry, FormError
+from vaxup.web import AuthorizedEnroller
 
 
 def parse_args():
@@ -39,7 +39,6 @@ def main():
     args = parse_args()
 
     console.rule(":syringe: vaxup :syringe:")
-
     reader = AcuityExportReader(getattr(args, "acuity-export"))
     if args.check:
         check(reader=reader, console=console, verbose=args.verbose)
@@ -50,12 +49,7 @@ def main():
         username = console.input("[blue]Username[/blue]: ")
         password = console.input("[blue]Password[/blue]: ", password=True)
 
-        try:
-            with console.status("Initialing web-driver...") as status:
-                enroller = AuthorizedEnroller(username, password)
-                enroller.schedule_appointments(entries=entries, status=status)
-            # console.print(f"[bold green]Registered {total} applicants successfully")
-
-        except Exception as e:
-            console.log("[red bold]There was an error[/red bold]")
-            console.log(e)
+        with console.status("Initialing web-driver..."):
+            enroller = AuthorizedEnroller(username, password)
+        enroller.schedule_appointments(entries=entries, console=console)
+        # console.print(f"[bold green]Registered {total} applicants successfully")

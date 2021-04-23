@@ -2,8 +2,8 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import List, Literal, Optional, Tuple, Iterable
 from itertools import groupby
+from typing import Iterable, List, Literal, Optional, Tuple
 
 from openpyxl import load_workbook
 from pydantic import BaseModel, validator
