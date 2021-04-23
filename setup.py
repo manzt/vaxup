@@ -26,6 +26,6 @@ setuptools.setup(
         "openpyxl>=3.0.7",
     ],
     entry_points={
-        "console_scripts": ["vaxup=vaxup.main:main"],
+        "console_scripts": ["vaxup=vaxup.cli:main"],
     },
 )

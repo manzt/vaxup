@@ -2,11 +2,11 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import List, Literal, Optional, Tuple
+from typing import List, Literal, Optional, Tuple, Iterable
+from itertools import groupby
 
-from pydantic import BaseModel, ValidationError, validator
 from openpyxl import load_workbook
-from rich import inspect
+from pydantic import BaseModel, validator
 
 COLUMNS = {
     "Start Time": "start_time",
@@ -30,10 +30,12 @@ COLUMNS = {
 
 
 class Location(Enum):
-    EAST_NY = 0
-    HARLEM = 1
-    WASHINGTON_HEIGHTS = 2
-    SOUTH_JAMAICA = 3
+    # Values are the "data-id" attribute for the "Select" buttons after login on website.
+    # e.g. <lightning-button data-id='0013d000002jkZPAAY'>
+    EAST_NY = "0013d000002jkZPAAY"
+    HARLEM = "0013d000002jkZ0AAI"
+    WASHINGTON_HEIGHTS = "0013d000002vZH6AAM"
+    SOUTH_JAMAICA = "0013d000002jkSKAAY"
 
     @classmethod
     def from_str(cls, v: str):
@@ -50,6 +52,8 @@ class Location(Enum):
 
 
 class Race(Enum):
+    # Values are the "data-label" attribute for the clickable span on website.
+    # e.g. <span data-label='Other'...>
     BLACK = "Black, including African American or Afro-Caribbean"
     ASIAN = "Asian, including South Asian"
     NATIVE_AMERICAN = "Native American or Alaska Native"
@@ -78,6 +82,8 @@ class Race(Enum):
 
 
 class Sex(Enum):
+    # Values are the "data-value" attribute for the dropdown on website.
+    # e.g. <lightning-base-combobox-item data-value='Unknown' ...>
     MALE = "Male"
     FEMALE = "Female"
     NEITHER = "Neither male or female"
@@ -96,6 +102,8 @@ class Sex(Enum):
 
 
 class Ethnicity(Enum):
+    # Values are the "data-value" attribute for the dropdown on website.
+    # e.g. <lightning-base-combobox-item data-value='Prefer not to answer' ... >
     LATINX = "Yes, Hispanic, Latino, or Latina"
     NOT_LATINX = "No, not Hispanic, Latino, or Latina"
     PERFER_NOT_TO_ANSWER = "Prefer not to answer"
@@ -143,22 +151,19 @@ class FormEntry(BaseModel):
         return self.dob.strftime("%m/%d/%Y")
 
     @validator("phone")
-    def fix_phone(cls, v):
-        # remove non numeric characters
-        v = re.sub(r"[^0-9]+", "", str(v))
-        # get last 10 digits (or less)
-        v = v[-10:]
+    def cast_phone(cls, v):
+        # Since it's not a required field, only provide number if its exactly 10 digits
+        v = re.sub(r"[^0-9]+", "", str(v))[-10:]  # remove non-numeric characters
+        v = v[-10:]  # and last 10 elements (or less)
         return v if len(v) == 10 else None
 
 
 def cast_state(v: str):
+    # No validation for "state" in Acuity.
+    # This function safely determines whether
     upper = str(v).strip().upper()
     if upper in {"NJ", "NY"}:
         return upper
-    if "YORK" in upper:
-        return "NY"
-    if "JERSEY" in upper:
-        return "NJ"
     return v
 
 
@@ -177,7 +182,7 @@ class FormError:
         return cls(date=date, errors=errors)
 
 
-class Reader:
+class AcuityExportReader:
     def __init__(self, path: str):
         wb = load_workbook(path)
         self.name = wb.sheetnames[0]
@@ -206,18 +211,6 @@ class Reader:
         return sum(1 for _ in data)
 
 
-if __name__ == "__main__":
-    import sys
-
-    from openpyxl import load_workbook
-    from rich.console import Console
-
-    console = Console()
-    entries = []
-    for record in Reader(sys.argv[1]):
-        try:
-            entry = FormEntry(**record)
-            entries.append(entry)
-        except ValidationError as e:
-            console.log(FormError.from_err(e, record))
-    inspect(entries[-1])
+def group_entries(entries: Iterable[FormEntry]):
+    sorted_entries = sorted(entries, key=lambda e: e.location.value)
+    return groupby(sorted_entries, key=lambda e: e.location)
