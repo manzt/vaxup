@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 
 from pydantic import ValidationError
@@ -58,9 +59,13 @@ def main():
         )
         sys.exit(1)
 
-    console.print("Please enter your login")
-    username = console.input("[blue]Username[/blue]: ")
-    password = console.input("[blue]Password[/blue]: ", password=True)
+    username = os.environ.get("VAXUP_USERNAME")
+    password = os.environ.get("VAXUP_PASSWORD")
+
+    if not username or not password:
+        console.print("Please enter your login")
+        username = console.input("[blue]Username[/blue]: ")
+        password = console.input("[blue]Password[/blue]: ", password=True)
 
     with console.status("Initialing web-driver..."):
         enroller = AuthorizedEnroller(username, password, args.dry_run)

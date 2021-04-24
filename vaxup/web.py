@@ -71,12 +71,8 @@ class AuthorizedEnroller:
             WebDriverWait(self.driver, 10).until(date_matches)
 
         # Find time slot and click
-        for el in self.driver.find_elements(By.XPATH, "//lightning-formatted-time"):
-            if time == el.text:
-                el.click()
-                return
-
-        raise ValueError("Failed to find time.")
+        # Time must be formatted: HH:MM AM/PM
+        self._find_element(f"//lightning-formatted-time[text()='{time}']").click()
 
     def _click_next(self, first: bool = False):
         path = "//section/button"
@@ -131,7 +127,7 @@ class AuthorizedEnroller:
 
         # Race checkbox
         find_checkbox = create_finder(
-            "//li[@class='race_checkbox--li']/span[@data-label='{}']"
+            "//input[@name='races' and @value='{}']/following-sibling::label"
         )
         find_checkbox(entry.race.value).click()
 
@@ -188,10 +184,10 @@ class AuthorizedEnroller:
                     try:
                         appt_num = self._register(entry=entry)
                         console.log(
-                            f"[green]Success[/green] - {entry.date_str} @ {entry.time_str} - {appt_num}"
+                            f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {appt_num}"
                         )
                     except Exception as e:
                         console.log(
-                            f"[red bold]Failure[/red bold] - {entry.date_str} @ {entry.time_str}"
+                            f"[red bold]Failure[/red bold] - {location.name} {entry.date_str} @ {entry.time_str}"
                         )
                         console.log(e)
