@@ -1,9 +1,8 @@
 import re
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from itertools import groupby
-from typing import Iterable, List, Literal, Optional, Tuple
+from typing import Iterable, Literal, Optional
 
 from openpyxl import load_workbook
 from pydantic import BaseModel, validator
@@ -25,7 +24,6 @@ COLUMNS = {
     "Do you identify as Hispanic, Latino, or Latina?": "ethnicity",
     "What sex were you assigned at birth?": "sex",
     "COVID-19 vaccines are free for you and we will not be billing your insurance. For informational purposes, do you have health insurance?": "has_health_insurance",
-    "Have you ever had a serious or life-threatening allergic reaction, such as hives or difficulty breathing, to a previous dose of COVID-19 vaccine or any component of the vaccine?  IF YES, DO NOT SCHEDULE given you are not eligible to receive the vaccine.": "is_allergic",
 }
 
 
@@ -120,6 +118,7 @@ class Ethnicity(Enum):
 
 
 class FormEntry(BaseModel):
+    id: Optional[int]
     start_time: datetime
     first_name: str
     last_name: str
@@ -136,7 +135,6 @@ class FormEntry(BaseModel):
     ethnicity: Ethnicity
     sex: Sex
     has_health_insurance: bool
-    is_allergic: Literal[False]
 
     @property
     def date_str(self):
@@ -150,12 +148,24 @@ class FormEntry(BaseModel):
     def dob_str(self):
         return self.dob.strftime("%m/%d/%Y")
 
+    @validator("email")
+    def not_empty(cls, v):
+        if len(v) == 0:
+            raise ValueError("Empty field.")
+        return v
+
     @validator("phone")
     def cast_phone(cls, v):
         # Since it's not a required field, only provide number if its exactly 10 digits
         v = re.sub(r"[^0-9]+", "", str(v))[-10:]  # remove non-numeric characters
         v = v[-10:]  # and last 10 elements (or less)
         return v if len(v) == 10 else None
+
+    @validator("dob", pre=True)
+    def instance_dt(cls, v):
+        if isinstance(v, datetime):
+            return v
+        return datetime.strptime(v.strip(), "%m/%d/%Y")
 
 
 def cast_state(v: str):
@@ -164,22 +174,11 @@ def cast_state(v: str):
     upper = str(v).strip().upper()
     if upper in {"NJ", "NY"}:
         return upper
+    if "YORK" in upper:
+        return "NY"
+    if "JERSEY" in upper:
+        return "NJ"
     return v
-
-
-@dataclass
-class FormError:
-    date: datetime
-    errors: List[Tuple[str, str]]
-
-    @classmethod
-    def from_err(cls, e, record):
-        errors = []
-        for err in e.errors():
-            field = err["loc"][0]
-            errors.append({field: record[field]})
-        date = str(record["start_time"])
-        return cls(date=date, errors=errors)
 
 
 class AcuityExportReader:
@@ -205,7 +204,6 @@ class AcuityExportReader:
                 "ethnicity": Ethnicity.from_answer(record["ethnicity"]),
                 "has_health_insurance": record["has_health_insurance"] == "yes",
                 "state": cast_state(record["state"]),
-                "is_allergic": record["is_allergic"] == "yes",
             }
 
     def __len__(self):

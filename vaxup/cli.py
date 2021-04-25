@@ -1,11 +1,12 @@
 import argparse
+import datetime
 import os
 import sys
 
 from pydantic import ValidationError
 from rich.console import Console
 
-from vaxup.data import AcuityExportReader, FormEntry, FormError
+from vaxup.data import AcuityExportReader, FormEntry
 from vaxup.web import AuthorizedEnroller
 
 
@@ -19,7 +20,14 @@ def parse_args():
     return parser.parse_args()
 
 
-import datetime
+def fmt_err(e, record):
+    fields = []
+    for err in e.errors():
+        field = err["loc"][0]
+        fields.append({field: record[field]})
+    date = datetime.datetime.strptime(record["start_time"], "%Y-%m-%dT%H:%M:%S%z")
+    date = date.strftime("%Y-%m-%d @ %I:%M %p")
+    return f"[red bold]Error[/red bold] - id={record.get('id')} {date=} {fields=}"
 
 
 def check(reader: AcuityExportReader, console: Console, verbose: bool):
@@ -28,19 +36,20 @@ def check(reader: AcuityExportReader, console: Console, verbose: bool):
     for record in reader:
         try:
             entry = FormEntry(**record)
-            if not isinstance(record["dob"], datetime.datetime):
-                console.print(record)
-                console.print(entry)
             entries.append(entry)
         except ValidationError as e:
-            errors.append(FormError.from_err(e, record))
+            # errors.append(e)
+            errors.append(fmt_err(e, record))
 
     if len(errors) == 0:
-        console.print("[bold green]All entries passed validation!")
+        console.print(f"[bold green]All {len(reader)} entries passed validation!")
     else:
-        console.print(f"[bold yellow]Form errors in {len(errors)} of {1} entries.")
+        console.print(
+            f"[bold yellow]Form errors in {len(errors)} of {len(reader)} entries."
+        )
         if verbose:
             for err in errors:
+                # console.print(err.json())
                 console.print(err)
 
 

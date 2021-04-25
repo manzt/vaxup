@@ -1,60 +1,66 @@
-import datetime
 import os
-from typing import cast
 
 import requests
 from rich.console import Console
 
-from vaxup.data import COLUMNS, Location, Sex, Ethnicity, Race, cast_state
 from vaxup.cli import check
-
-
-def parse_forms(forms):
-    values = forms[0]["values"]
-    return {COLUMNS[d["name"]]: d["value"] for d in values if d["name"] in COLUMNS}
+from vaxup.data import COLUMNS, Ethnicity, Location, Race, Sex, cast_state, FormEntry
 
 
 def parse_data(d):
-    record = (
-        dict(
-            id=d["id"],
-            first_name=d["firstName"],
-            last_name=d["lastName"],
-            email=d["email"],
-            start_time=d["datetime"],
-            location=d["calendar"],
-        )
-        | parse_forms(d["forms"])
+    record = dict(
+        id=d["id"],
+        first_name=d["firstName"],
+        last_name=d["lastName"],
+        email=d["email"],
+        start_time=d["datetime"],
+        location=d["calendar"],
     )
-    try:
-        dob = datetime.datetime.strptime(record["dob"].strip(), "%m/%d/%Y")
-    except Exception:
-        dob = record["dob"]
+    record |= {
+        COLUMNS[d["name"]]: d["value"]
+        for d in d["forms"][0]["values"]
+        if d["name"] in COLUMNS
+    }
     return record | {
         "location": Location.from_str(record["location"]),
         "race": Race.from_str(record["race"]),
         "sex": Sex.from_str(record["sex"]),
         "ethnicity": Ethnicity.from_answer(record["ethnicity"]),
         "has_health_insurance": record.get("has_health_insurance", "no") == "yes",
-        "is_allergic": record["is_allergic"] == "yes",
-        "dob": dob,
         "state": cast_state(record["state"]),
     }
 
 
-def main():
-    console = Console()
-    date = "2021-04-22"
+def get_appointments(date: str = None):
     response = requests.get(
         url="https://acuityscheduling.com/api/v1/appointments",
         auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
         params={
             "minDate": f"{date}T00:00:00",
             "maxDate": f"{date}T23:59:00",
-        },
+            "max": 2000,
+        }
+        if date
+        else {"max": 2000},
     )
-    data = response.json()
-    check(reader=map(parse_data, data), console=console, verbose=True)
+    return map(parse_data, response.json())
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("date", default=None)
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+
+    console = Console()
+    appts = list(get_appointments(args.date))
+    if args.check:
+        check(reader=appts, console=console, verbose=True)
+    else:
+        for a in appts:
+            console.print(FormEntry(**a))
 
 
 if __name__ == "__main__":
