@@ -6,14 +6,13 @@ import sys
 from pydantic import ValidationError
 from rich.console import Console
 
-from vaxup.data import AcuityExportReader, FormEntry
+from vaxup.data import AcuityExportReader, DUMMY_DATA, FormEntry
 from vaxup.web import AuthorizedEnroller
 
 
 def parse_args():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -58,8 +57,7 @@ def main():
     args = parse_args()
 
     console.rule(":syringe: vaxup :syringe:")
-
-    reader = AcuityExportReader(args.file)
+    reader = [DUMMY_DATA]
 
     if args.check:
         check(reader=reader, console=console, verbose=args.verbose)

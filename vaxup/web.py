@@ -7,12 +7,51 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from vaxup.data import FormEntry, Location, group_entries
+from vaxup.data import Ethnicity, FormEntry, Location, Race, Sex, group_entries
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
 
 TIME_STAMP_XPATH = "//c-vcms-book-appointment/article/div[4]/div[2]"
+
+
+# Values are the "data-id" attribute for the "Select" buttons after login on website.
+# e.g. <lightning-button data-id='0013d000002jkZPAAY'>
+LOCATION = {
+    Location.EAST_NY: "0013d000002jkZPAAY",
+    Location.HARLEM: "0013d000002jkZ0AAI",
+    Location.WASHINGTON_HEIGHTS: "0013d000002vZH6AAM",
+    Location.SOUTH_JAMAICA: "0013d000002jkSKAAY",
+}
+
+# Values are the "data-label" attribute for the clickable span on website.
+# e.g. <span data-label='Other'...>
+RACE = {
+    Race.BLACK: "Black, including African American or Afro-Caribbean",
+    Race.ASIAN: "Asian, including South Asian",
+    Race.NATIVE_AMERICAN: "Native American or Alaska Native",
+    Race.PACIFIC_ISLANDER: "Native Hawaiian or Pacific Islander",
+    Race.WHITE: "White",
+    Race.PREFER_NOT_TO_ANSWER: "Prefer not to answer",
+    Race.OTHER: "Other",
+}
+
+# Values are the "data-value" attribute for the dropdown on website.
+# e.g. <lightning-base-combobox-item data-value='Unknown' ...>
+SEX = {
+    Sex.MALE: "Male",
+    Sex.FEMALE: "Female",
+    Sex.NEITHER: "Neither male or female",
+    Sex.UNKNOWN: "Unknown",
+}
+
+# Values are the "data-value" attribute for the dropdown on website.
+# e.g. <lightning-base-combobox-item data-value='Prefer not to answer' ... >
+ETHNICITY = {
+    Ethnicity.LATINX: "Yes, Hispanic, Latino, or Latina",
+    Ethnicity.NOT_LATINX: "No, not Hispanic, Latino, or Latina",
+    Ethnicity.PERFER_NOT_TO_ANSWER: "Prefer not to answer",
+}
 
 
 class AuthorizedEnroller:
@@ -52,7 +91,8 @@ class AuthorizedEnroller:
         )
 
     def _select_location(self, location: Location):
-        self._find_element(f"//lightning-button[@data-id='{location.value}']").click()
+        data_id = LOCATION[location]
+        self._find_element(f"//lightning-button[@data-id='{data_id}']").click()
 
     def _select_date(self, date: str, time: str):
         # Checks if date in middle of page matches our desired date.
@@ -119,16 +159,16 @@ class AuthorizedEnroller:
         find_dropdown_item(entry.state).click()
 
         find_input("ethencity").click()
-        find_dropdown_item(entry.ethnicity.value).click()
+        find_dropdown_item(ETHNICITY[entry.ethnicity]).click()
 
         find_input("sex").click()
-        find_dropdown_item(entry.sex.value).click()
+        find_dropdown_item(SEX[entry.sex]).click()
 
         # Race checkbox
         find_checkbox = create_finder(
             "//input[@name='races' and @value='{}']/following-sibling::label"
         )
-        find_checkbox(entry.race.value).click()
+        find_checkbox(RACE[entry.race]).click()
 
     def _health_insurance(self, has_health_insurance: bool):
         tmp = "//input[@name='{}' and @value='{}']/following-sibling::label"
