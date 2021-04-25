@@ -12,7 +12,6 @@ from vaxup.data import FormEntry, Location, group_entries
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
 
-
 TIME_STAMP_XPATH = "//c-vcms-book-appointment/article/div[4]/div[2]"
 
 
@@ -143,7 +142,7 @@ class AuthorizedEnroller:
         el = self._find_element("//*[contains(text(),'Appointment #')]")
         return el.text.lstrip("Appointment #:")
 
-    def _register(self, entry: FormEntry, submit: bool = True):
+    def _register(self, entry: FormEntry):
         self.driver.get(URL)
 
         self._select_date(date=entry.date_str, time=entry.time_str)

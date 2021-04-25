@@ -19,12 +19,18 @@ def parse_args():
     return parser.parse_args()
 
 
+import datetime
+
+
 def check(reader: AcuityExportReader, console: Console, verbose: bool):
     entries = []
     errors = []
     for record in reader:
         try:
             entry = FormEntry(**record)
+            if not isinstance(record["dob"], datetime.datetime):
+                console.print(record)
+                console.print(entry)
             entries.append(entry)
         except ValidationError as e:
             errors.append(FormError.from_err(e, record))
