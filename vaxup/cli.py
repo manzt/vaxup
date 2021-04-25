@@ -2,11 +2,12 @@ import argparse
 import datetime
 import os
 import sys
+from typing import Any, List
 
 from pydantic import ValidationError
 from rich.console import Console
 
-from vaxup.data import AcuityExportReader, DUMMY_DATA, FormEntry
+from vaxup.data import DUMMY_DATA, FormEntry
 from vaxup.web import AuthorizedEnroller
 
 
@@ -29,7 +30,7 @@ def fmt_err(e, record):
     return f"[red bold]Error[/red bold] - id={record.get('id')} {date=} {fields=}"
 
 
-def check(reader: AcuityExportReader, console: Console, verbose: bool):
+def check(reader: List[Any], console: Console, verbose: bool):
     entries = []
     errors = []
     for record in reader:

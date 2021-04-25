@@ -2,9 +2,8 @@ import re
 from datetime import datetime
 from enum import Enum
 from itertools import groupby
-from typing import Iterable, Literal, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable, Literal, Optional
 
-from openpyxl import load_workbook
 from pydantic import EmailStr, validator
 from pydantic.types import PositiveInt
 
@@ -14,25 +13,6 @@ if TYPE_CHECKING:
     from dataclasses import dataclass
 else:
     from pydantic.dataclasses import dataclass as dataclass
-
-COLUMNS = {
-    "Start Time": "start_time",
-    "First Name": "first_name",
-    "Last Name": "last_name",
-    "Phone": "phone",
-    "Email": "email",
-    "Calendar": "location",
-    "Date of birth (M/DD/YYYY)": "dob",
-    "Street address (e.g., 60 Madison Ave.)": "street_address",
-    "Apt / suite number": "apt",
-    "City (e.g., Queens)": "city",
-    "State (e.g., NY)": "state",
-    "Zip code (e.g., 10010)": "zip_code",
-    "Which race do you identify as?": "race",
-    "Do you identify as Hispanic, Latino, or Latina?": "ethnicity",
-    "What sex were you assigned at birth?": "sex",
-    "COVID-19 vaccines are free for you and we will not be billing your insurance. For informational purposes, do you have health insurance?": "has_health_insurance",
-}
 
 
 class Location(Enum):
@@ -144,28 +124,6 @@ class FormEntry:
         if isinstance(v, datetime):
             return v
         return datetime.strptime(v.strip(), "%m/%d/%Y")
-
-
-class AcuityExportReader:
-    def __init__(self, path: str):
-        wb = load_workbook(path)
-        self.name = wb.sheetnames[0]
-        self._ws = wb[self.name]
-
-    def __iter__(self):
-        data = self._ws.values
-        headers = next(data)
-        for row in data:
-            if all(i is None for i in row):
-                # empty row
-                continue
-            # Rename and pick fields
-            yield {COLUMNS[k]: v for k, v in zip(headers, row) if k in COLUMNS}
-
-    def __len__(self):
-        data = self._ws.values
-        next(data)
-        return sum(1 for _ in data)
 
 
 def group_entries(entries: Iterable[FormEntry]):
