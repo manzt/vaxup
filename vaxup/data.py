@@ -47,6 +47,7 @@ class Ethnicity(Enum):
 
 class Config:
     anystr_strip_whitespace = True
+    extra = "ignore"
 
 
 @dataclass(config=Config)
@@ -138,15 +139,15 @@ DUMMY_DATA = {
     "start_time": "2021-04-28T21:30",
     "phone": "7158289308",
     "email": "trevmanz94@gmail.com",
-    "location": Location.EAST_NY,
+    "location": Location.EAST_NY.value,
     "dob": "07/07/1994",
     "street_address": "500 WN street",
     "city": "New York",
     "state": "NY",
     "apt": None,
     "zip_code": "10001",
-    "race": Race.WHITE,
-    "ethnicity": Ethnicity.NOT_LATINX,
-    "sex": Sex.MALE,
+    "race": Race.WHITE.value,
+    "ethnicity": Ethnicity.NOT_LATINX.value,
+    "sex": Sex.MALE.value,
     "has_health_insurance": "yes",
 }

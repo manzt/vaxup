@@ -32,6 +32,9 @@ FIELD_IDS = {
     9605968: "_link",
 }
 
+# Ignore fields that are prefixed with "_"; we don't use them in vaxup
+FIELD_MAP = {k: v for k, v in FIELD_IDS.items() if not v.startswith("_")}
+
 
 def _assert_correct_form(form):
     assert form["id"] == ACUITY_FORM_ID, "Acuity form not found"
@@ -60,14 +63,15 @@ def transform_json(d):
         location=d["calendar"],
     )
 
+    # Grab first form and assert it is correct
     form = d["forms"][0]
-    assert form["name"] == ACUITY_FORM_ID, "Acuity form not recognized"
-    form_items = {f["fieldID"]: f for f in form["values"]}
+    _assert_correct_form(form)
 
-    form_data = {}
-    for key, value in FIELD_IDS.items():
-        form_data[value] = form_items[key]["value"]
-    return record | form_data
+    return record | {
+        FIELD_MAP[val["fieldID"]]: val["value"]
+        for val in form["values"]
+        if val["fieldID"] in FIELD_MAP
+    }
 
 
 def get_appointments(date: str = None, transform=True):
@@ -94,7 +98,7 @@ def get_forms():
     return response.json()
 
 
-def create_table(fields):
+def create_table(fields, list_all=False):
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("id", style="dim")
     table.add_column("field")
@@ -102,10 +106,13 @@ def create_table(fields):
     table.add_column("type", justify="center")
     table.add_column("options")
     for f in fields:
-        if f["id"] in ACUITY_MAPPING:
-            field = ACUITY_MAPPING[f["id"]]
-            row = map(str, (f["id"], field, f["name"], f["type"], f["options"]))
+        field = FIELD_IDS[f["id"]]
+        row = map(str, (f["id"], field, f["name"], f["type"], f["options"]))
+        if list_all:
             table.add_row(*row)
+        elif not field.startswith("_"):
+            table.add_row(*row)
+
     return table
 
 
@@ -134,4 +141,4 @@ def main():
 
 
 if __name__ == "__main__":
-    check_acuity_mapping()
+    main()
