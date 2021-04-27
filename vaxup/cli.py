@@ -7,7 +7,7 @@ from typing import Any, List
 from pydantic import ValidationError
 from rich.console import Console
 
-from vaxup.data import DUMMY_DATA, FormEntry
+from vaxup.data import FormEntry
 from vaxup.web import AuthorizedEnroller
 
 
@@ -39,7 +39,7 @@ def check(reader: List[Any], console: Console, verbose: bool):
             entries.append(entry)
         except ValidationError as e:
             # errors.append(e)
-            errors.append(fmt_err(e, record))
+            errors.append((e, record))
 
     if len(errors) == 0:
         console.print(f"[bold green]All {len(reader)} entries passed validation!")
@@ -50,7 +50,9 @@ def check(reader: List[Any], console: Console, verbose: bool):
         if verbose:
             for err in errors:
                 # console.print(err.json())
-                console.print(err)
+                console.print(fmt_err(*err))
+
+    return errors
 
 
 def main():
@@ -58,7 +60,7 @@ def main():
     args = parse_args()
 
     console.rule(":syringe: vaxup :syringe:")
-    reader = [DUMMY_DATA]
+    reader = []
 
     if args.check:
         check(reader=reader, console=console, verbose=args.verbose)

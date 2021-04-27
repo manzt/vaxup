@@ -1,13 +1,18 @@
+import argparse
 import os
-from dataclasses import asdict
+import json
+from typing import Tuple, List
 
 import requests
 from rich.console import Console
 from rich.table import Table
+from rich.prompt import Prompt
+from pydantic import ValidationError
 
-from vaxup.cli import check
+from vaxup.cli import fmt_err
 from vaxup.data import FormEntry
 
+ACUITY_URL = "https://acuityscheduling.com/api/v1"
 
 ACUITY_FORM_ID = 1717791  # "CHN Vaccine Scheduling Intake Form"
 
@@ -42,7 +47,7 @@ def _assert_correct_form(form):
 
 def _assert_has_all_fields(fields):
     for field in fields:
-        msg = f"Field not found in mapping, {field['name']} {field['id']}"
+        msg = f"Field not found in mapping, {field['name']=} {field['id']=}"
         assert field["id"] in FIELD_IDS, msg
 
 
@@ -75,16 +80,13 @@ def transform_json(d):
 
 
 def get_appointments(date: str = None, transform=True):
+    params = {"max": 2000}
+    if date:
+        params |= {"minDate": f"{date}T00:00", "maxDate": f"{date}T23:59"}
     response = requests.get(
-        url="https://acuityscheduling.com/api/v1/appointments",
+        url=f"{ACUITY_URL}/appointments",
         auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
-        params={
-            "minDate": f"{date}T00:00",
-            "maxDate": f"{date}T23:59",
-            "max": 2000,
-        }
-        if date
-        else {"max": 2000},
+        params=params,
     )
     data = response.json()
     return data if not transform else list(map(transform_json, data))
@@ -92,7 +94,7 @@ def get_appointments(date: str = None, transform=True):
 
 def get_forms():
     response = requests.get(
-        url="https://acuityscheduling.com/api/v1/forms",
+        url=f"{ACUITY_URL}/forms",
         auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
     )
     return response.json()
@@ -116,28 +118,91 @@ def create_table(fields, list_all=False):
     return table
 
 
+def fix(args: argparse.Namespace) -> None:
+    console = Console()
+
+    id_map = {v: k for k, v in FIELD_IDS.items()}
+    fields = []
+    for f in args.fields:
+        name, value = f.split(":")
+        fields.append({"id": id_map[name], "value": value})
+
+    res = requests.put(
+        url=f"{ACUITY_URL}/appointments/{args.id}",
+        auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
+        data=json.dumps({"fields": fields}),
+    )
+
+    console.print(res.text)
+
+
+def fix_(appt_id: int, fields=List[Tuple[str, str]]):
+    id_map = {v: k for k, v in FIELD_IDS.items()}
+    fields = [{"id": id_map[k], "value": v} for k, v in fields]
+    res = requests.put(
+        url=f"{ACUITY_URL}/appointments/{appt_id}",
+        auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
+        data=json.dumps({"fields": fields}),
+    )
+    return res, fields
+
+
+def check(args: argparse.Namespace) -> None:
+    console = Console()
+    records = get_appointments(args.date)
+
+    entries = []
+    failed = False
+    for record in records:
+        try:
+            entry = FormEntry(**record)
+            entries.append(entry)
+        except ValidationError as e:
+            failed = True
+            console.print(fmt_err(e, record))
+            if args.fix:
+                fields = []
+                for err in e.errors():
+                    name = err["loc"][0]
+                    value = Prompt.ask(f"{name}")
+                    if value != "":
+                        fields.append((name, value))
+                if len(fields) > 0:
+                    res, fields = fix_(record.get("id"), fields)
+                    if res.ok:
+                        console.print(
+                            "[green bold]Success[/green bold] Updated fields", fields
+                        )
+                    else:
+                        console.print(f"[green bold]Update Failure[/green bold]")
+                else:
+                    console.print("[bold yellow]Skipped")
+
+    if not failed:
+        console.print(f"[bold green]All {len(records)} entries passed validation!")
+
+
 def main():
-    import argparse
+    import sys
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("date", default=None)
-    parser.add_argument("--check", action="store_true")
-    args = parser.parse_args()
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.required = True
 
-    console = Console()
-    forms = get_forms()
-    table = create_table(forms[0]["fields"])
-    console.print(table)
+    # check
+    parser_check = subparsers.add_parser("check")
+    parser_check.add_argument("date")
+    parser_check.add_argument("--fix", action="store_true")
+    parser_check.set_defaults(func=check)
 
-    appts = list(get_appointments(args.date))
-    if args.check:
-        check(reader=appts, console=console, verbose=True)
-    else:
-        for a in appts:
-            # console.print(a)
-            # console.print(a)
-            console.print(a)
-            console.print(asdict(FormEntry(**a)))
+    # fix
+    parser_fix = subparsers.add_parser("fix")
+    parser_fix.add_argument("--id", required=True)
+    parser_fix.add_argument("fields", nargs="*")
+    parser_fix.set_defaults(func=fix)
+
+    ns = parser.parse_args(sys.argv[1:])
+    ns.func(ns)
 
 
 if __name__ == "__main__":
