@@ -140,11 +140,11 @@ class FormError:
     fields: List[Tuple[str, str]]
 
     @property
-    def time(self):
-        return self.datetime.strftime("%Y-%m-%d")
+    def date(self):
+        return self.datetime.strftime("%d/%m/%Y")
 
     @property
-    def date(self):
+    def time(self):
         return self.datetime.strftime("%I:%M %p")
 
     @property
@@ -159,6 +159,10 @@ class FormError:
     def from_err(cls, e: ValidationError, record: Any):
         fields = [(err["loc"][0], record[err["loc"][0]]) for err in e.errors()]
         return cls(id=record["id"], datetime=record["start_time"], fields=fields)
+
+    @validator("datetime")
+    def strip_tzinfo(cls, dt):
+        return dt.replace(tzinfo=None)
 
 
 DUMMY_DATA = {

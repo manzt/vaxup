@@ -92,7 +92,7 @@ def edit_appointment(appt_id: int, fields=List[Tuple[str, str]]):
         auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
         data=json.dumps({"fields": fields}),
     )
-    return res, fields
+    return res
 
 
 def get_forms():
