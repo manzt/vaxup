@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from enum import Enum
 from itertools import groupby
-from typing import TYPE_CHECKING, Iterable, Literal, Optional, List, Tuple, Any
+from typing import TYPE_CHECKING, Any, Iterable, List, Literal, Optional, Tuple
 
 from pydantic import EmailStr, validator
 from pydantic.error_wrappers import ValidationError

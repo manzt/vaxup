@@ -1,11 +1,8 @@
 import json
 import os
 from typing import List, Tuple
-from vaxup.data import FormError
 
 import requests
-from rich.table import Table
-from rich import box
 
 ACUITY_URL = "https://acuityscheduling.com/api/v1"
 
@@ -104,44 +101,3 @@ def get_forms():
         auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
     )
     return response.json()
-
-
-def create_table(fields, list_all=False):
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("id", style="dim")
-    table.add_column("field")
-    table.add_column("text")
-    table.add_column("type", justify="center")
-    table.add_column("options")
-    for f in fields:
-        field = FIELD_IDS[f["id"]]
-        row = map(str, (f["id"], field, f["name"], f["type"], f["options"]))
-        if list_all:
-            table.add_row(*row)
-        elif not field.startswith("_"):
-            table.add_row(*row)
-
-    return table
-
-
-def create_error_table(errs: List[FormError]):
-    row_styles = ["none", "dim"] if len(errs) > 2 else None
-    table = Table(show_header=True, row_styles=row_styles, box=box.SIMPLE_HEAD)
-    table.add_column("appt. id", style="magenta")
-    table.add_column("date", justify="center")
-
-    table.add_column("time", justify="center")
-
-    table.add_column("field", justify="right", style="yellow")
-    table.add_column("value", style="bold yellow")
-
-    for err in errs:
-        table.add_row(
-            str(err.id),
-            err.date,
-            err.time,
-            "\n".join(err.names),
-            "\n".join(err.values),
-        )
-
-    return table
