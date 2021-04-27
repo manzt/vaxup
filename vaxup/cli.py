@@ -2,22 +2,14 @@ import argparse
 import datetime
 import os
 import sys
-from typing import Any, List
 
 from pydantic import ValidationError
 from rich.console import Console
+from rich.prompt import Prompt
 
+from vaxup.acuity import edit_appointment, get_appointments
 from vaxup.data import FormEntry
 from vaxup.web import AuthorizedEnroller
-
-
-def parse_args():
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true")
-    parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--dry-run", action="store_true")
-    return parser.parse_args()
 
 
 def fmt_err(e, record):
@@ -30,49 +22,55 @@ def fmt_err(e, record):
     return f"[red bold]Error[/red bold] - id={record.get('id')} {date=} {fields=}"
 
 
-def check(reader: List[Any], console: Console, verbose: bool):
+def check(args: argparse.Namespace) -> None:
+    console = Console()
+
+    console.rule(":syringe: vaxup :syringe:")
+
+    with console.status(f"Fetching appointments for {args.date}", spinner="earth"):
+        records = get_appointments(args.date)
+
     entries = []
-    errors = []
-    for record in reader:
+    failed = False
+    for record in records:
         try:
             entry = FormEntry(**record)
             entries.append(entry)
         except ValidationError as e:
-            # errors.append(e)
-            errors.append((e, record))
+            failed = True
+            console.print(fmt_err(e, record))
+            if args.fix:
+                fields = []
+                for err in e.errors():
+                    name = err["loc"][0]
+                    value = Prompt.ask(f"{name}")
+                    if value != "":
+                        fields.append((name, value))
+                if len(fields) > 0:
+                    res, fields = edit_appointment(record.get("id"), fields)
+                    if res.ok:
+                        console.print(
+                            "[green bold]Success[/green bold] Updated fields", fields
+                        )
+                    else:
+                        console.print(f"[green bold]Update Failure[/green bold]")
+                else:
+                    console.print("[bold yellow]Skipped")
 
-    if len(errors) == 0:
-        console.print(f"[bold green]All {len(reader)} entries passed validation!")
-    else:
-        console.print(
-            f"[bold yellow]Form errors in {len(errors)} of {len(reader)} entries."
-        )
-        if verbose:
-            for err in errors:
-                # console.print(err.json())
-                console.print(fmt_err(*err))
-
-    return errors
+    if not failed:
+        console.print(f"[bold green]All {len(records)} entries passed validation!")
 
 
-def main():
+def enroll(args: argparse.Namespace) -> None:
     console = Console()
-    args = parse_args()
 
     console.rule(":syringe: vaxup :syringe:")
-    reader = []
-
-    if args.check:
-        check(reader=reader, console=console, verbose=args.verbose)
-        sys.exit(0)
+    records = []  # get_appointments(args.date)
 
     try:
-        entries = [FormEntry(**record) for record in reader]
+        entries = [FormEntry(**record) for record in records]
     except ValidationError:
         console.print("[red bold]Error with Acuity data export[/red bold]")
-        console.print(
-            f" Run [yellow bold]vaxup {args.file} --check[/yellow bold] for help"
-        )
         sys.exit(1)
 
     username = os.environ.get("VAXUP_USERNAME")
@@ -83,6 +81,28 @@ def main():
         username = console.input("[blue]Username[/blue]: ")
         password = console.input("[blue]Password[/blue]: ", password=True)
 
-    with console.status("Initialing web-driver..."):
-        enroller = AuthorizedEnroller(username, password, args.dry_run)
-    enroller.schedule_appointments(entries=entries, console=console)
+    if len(records) > 0:
+        with console.status("Initialing web-driver..."):
+            enroller = AuthorizedEnroller(username, password, args.dry_run)
+        enroller.schedule_appointments(entries=entries, console=console)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.required = True
+
+    # check
+    parser_check = subparsers.add_parser("check")
+    parser_check.add_argument("date")
+    parser_check.add_argument("--fix", action="store_true")
+    parser_check.set_defaults(func=check)
+
+    # enroll
+    parser_check = subparsers.add_parser("enroll")
+    parser_check.add_argument("date")
+    parser_check.add_argument("--dry-run", action="store_true")
+    parser_check.set_defaults(func=enroll)
+
+    ns = parser.parse_args(sys.argv[1:])
+    ns.func(ns)

@@ -1,16 +1,9 @@
-import argparse
-import os
 import json
-from typing import Tuple, List
+import os
+from typing import List, Tuple
 
 import requests
-from rich.console import Console
 from rich.table import Table
-from rich.prompt import Prompt
-from pydantic import ValidationError
-
-from vaxup.cli import fmt_err
-from vaxup.data import FormEntry
 
 ACUITY_URL = "https://acuityscheduling.com/api/v1"
 
@@ -92,6 +85,17 @@ def get_appointments(date: str = None, transform=True):
     return data if not transform else list(map(transform_json, data))
 
 
+def edit_appointment(appt_id: int, fields=List[Tuple[str, str]]):
+    id_map = {v: k for k, v in FIELD_IDS.items()}
+    fields = [{"id": id_map[k], "value": v} for k, v in fields]
+    res = requests.put(
+        url=f"{ACUITY_URL}/appointments/{appt_id}",
+        auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
+        data=json.dumps({"fields": fields}),
+    )
+    return res, fields
+
+
 def get_forms():
     response = requests.get(
         url=f"{ACUITY_URL}/forms",
@@ -116,94 +120,3 @@ def create_table(fields, list_all=False):
             table.add_row(*row)
 
     return table
-
-
-def fix(args: argparse.Namespace) -> None:
-    console = Console()
-
-    id_map = {v: k for k, v in FIELD_IDS.items()}
-    fields = []
-    for f in args.fields:
-        name, value = f.split(":")
-        fields.append({"id": id_map[name], "value": value})
-
-    res = requests.put(
-        url=f"{ACUITY_URL}/appointments/{args.id}",
-        auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
-        data=json.dumps({"fields": fields}),
-    )
-
-    console.print(res.text)
-
-
-def fix_(appt_id: int, fields=List[Tuple[str, str]]):
-    id_map = {v: k for k, v in FIELD_IDS.items()}
-    fields = [{"id": id_map[k], "value": v} for k, v in fields]
-    res = requests.put(
-        url=f"{ACUITY_URL}/appointments/{appt_id}",
-        auth=(os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]),
-        data=json.dumps({"fields": fields}),
-    )
-    return res, fields
-
-
-def check(args: argparse.Namespace) -> None:
-    console = Console()
-    records = get_appointments(args.date)
-
-    entries = []
-    failed = False
-    for record in records:
-        try:
-            entry = FormEntry(**record)
-            entries.append(entry)
-        except ValidationError as e:
-            failed = True
-            console.print(fmt_err(e, record))
-            if args.fix:
-                fields = []
-                for err in e.errors():
-                    name = err["loc"][0]
-                    value = Prompt.ask(f"{name}")
-                    if value != "":
-                        fields.append((name, value))
-                if len(fields) > 0:
-                    res, fields = fix_(record.get("id"), fields)
-                    if res.ok:
-                        console.print(
-                            "[green bold]Success[/green bold] Updated fields", fields
-                        )
-                    else:
-                        console.print(f"[green bold]Update Failure[/green bold]")
-                else:
-                    console.print("[bold yellow]Skipped")
-
-    if not failed:
-        console.print(f"[bold green]All {len(records)} entries passed validation!")
-
-
-def main():
-    import sys
-
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest="command")
-    subparsers.required = True
-
-    # check
-    parser_check = subparsers.add_parser("check")
-    parser_check.add_argument("date")
-    parser_check.add_argument("--fix", action="store_true")
-    parser_check.set_defaults(func=check)
-
-    # fix
-    parser_fix = subparsers.add_parser("fix")
-    parser_fix.add_argument("--id", required=True)
-    parser_fix.add_argument("fields", nargs="*")
-    parser_fix.set_defaults(func=fix)
-
-    ns = parser.parse_args(sys.argv[1:])
-    ns.func(ns)
-
-
-if __name__ == "__main__":
-    main()
