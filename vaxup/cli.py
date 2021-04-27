@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.prompt import Prompt
 
 from vaxup.acuity import edit_appointment, get_appointments
-from vaxup.data import FormEntry
+from vaxup.data import FormEntry, DUMMY_DATA
 from vaxup.web import AuthorizedEnroller
 
 
@@ -65,7 +65,7 @@ def enroll(args: argparse.Namespace) -> None:
     console = Console()
 
     console.rule(":syringe: vaxup :syringe:")
-    records = []  # get_appointments(args.date)
+    records = [DUMMY_DATA]  # get_appointments(args.date)
 
     try:
         entries = [FormEntry(**record) for record in records]
