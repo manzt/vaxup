@@ -2,9 +2,10 @@ import re
 from datetime import datetime
 from enum import Enum
 from itertools import groupby
-from typing import TYPE_CHECKING, Iterable, Literal, Optional
+from typing import TYPE_CHECKING, Iterable, Literal, Optional, List, Tuple, Any
 
 from pydantic import EmailStr, validator
+from pydantic.error_wrappers import ValidationError
 from pydantic.types import PositiveInt
 
 # Improve intellisense for VSCode
@@ -130,6 +131,34 @@ class FormEntry:
 def group_entries(entries: Iterable[FormEntry]):
     sorted_entries = sorted(entries, key=lambda e: e.location.value)
     return groupby(sorted_entries, key=lambda e: e.location)
+
+
+@dataclass
+class FormError:
+    id: int
+    datetime: datetime
+    fields: List[Tuple[str, str]]
+
+    @property
+    def time(self):
+        return self.datetime.strftime("%Y-%m-%d")
+
+    @property
+    def date(self):
+        return self.datetime.strftime("%I:%M %p")
+
+    @property
+    def names(self):
+        return [f[0] for f in self.fields]
+
+    @property
+    def values(self):
+        return [f[1] for f in self.fields]
+
+    @classmethod
+    def from_err(cls, e: ValidationError, record: Any):
+        fields = [(err["loc"][0], record[err["loc"][0]]) for err in e.errors()]
+        return cls(id=record["id"], datetime=record["start_time"], fields=fields)
 
 
 DUMMY_DATA = {

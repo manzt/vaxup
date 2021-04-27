@@ -1,9 +1,11 @@
 import json
 import os
 from typing import List, Tuple
+from vaxup.data import FormError
 
 import requests
 from rich.table import Table
+from rich import box
 
 ACUITY_URL = "https://acuityscheduling.com/api/v1"
 
@@ -118,5 +120,28 @@ def create_table(fields, list_all=False):
             table.add_row(*row)
         elif not field.startswith("_"):
             table.add_row(*row)
+
+    return table
+
+
+def create_error_table(errs: List[FormError]):
+    row_styles = ["none", "dim"] if len(errs) > 2 else None
+    table = Table(show_header=True, row_styles=row_styles, box=box.SIMPLE_HEAD)
+    table.add_column("appt. id", style="magenta")
+    table.add_column("date", justify="center")
+
+    table.add_column("time", justify="center")
+
+    table.add_column("field", justify="right", style="yellow")
+    table.add_column("value", style="bold yellow")
+
+    for err in errs:
+        table.add_row(
+            str(err.id),
+            err.date,
+            err.time,
+            "\n".join(err.names),
+            "\n".join(err.values),
+        )
 
     return table

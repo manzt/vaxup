@@ -7,8 +7,8 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.prompt import Prompt
 
-from vaxup.acuity import edit_appointment, get_appointments
-from vaxup.data import FormEntry, DUMMY_DATA
+from vaxup.acuity import create_error_table, edit_appointment, get_appointments
+from vaxup.data import FormEntry, FormError, DUMMY_DATA
 from vaxup.web import AuthorizedEnroller
 
 
@@ -25,46 +25,43 @@ def fmt_err(e, record):
 def check(args: argparse.Namespace) -> None:
     console = Console()
 
-    console.rule(":syringe: vaxup :syringe:")
-
     with console.status(f"Fetching appointments for {args.date}", spinner="earth"):
         records = get_appointments(args.date)
 
+    if len(records) == 0:
+        console.print(f"No appointments scheduled for {args.date} :calendar:")
+        sys.exit(0)
+
     entries = []
-    failed = False
+    errors = []
     for record in records:
         try:
             entry = FormEntry(**record)
             entries.append(entry)
         except ValidationError as e:
-            failed = True
-            console.print(fmt_err(e, record))
-            if args.fix:
-                fields = []
-                for err in e.errors():
-                    name = err["loc"][0]
-                    value = Prompt.ask(f"{name}")
-                    if value != "":
-                        fields.append((name, value))
-                if len(fields) > 0:
-                    res, fields = edit_appointment(record.get("id"), fields)
-                    if res.ok:
-                        console.print(
-                            "[green bold]Success[/green bold] Updated fields", fields
-                        )
-                    else:
-                        console.print(f"[green bold]Update Failure[/green bold]")
-                else:
-                    console.print("[bold yellow]Skipped")
+            error = FormError.from_err(e, record)
+            errors.append(error)
 
-    if not failed:
-        console.print(f"[bold green]All {len(records)} entries passed validation!")
+    if len(errors) > 0:
+        console.print(
+            f"[bold yellow]Oops! {len(errors)} of {len(records)} appointments need fixing 🛠️"
+        )
+        table = create_error_table(errors)
+        console.print(table)
+        if not args.fix:
+            console.print(
+                f"Run [yellow]vaxup check {args.date} --fix[/yellow] to fix interactively."
+            )
+        else:
+            console.print("[bold red]WIP, fix not implemented...")
+    else:
+        console.print(
+            f"[bold green]All {len(entries)} appointments passed[/bold green] 🎉"
+        )
 
 
 def enroll(args: argparse.Namespace) -> None:
     console = Console()
-
-    console.rule(":syringe: vaxup :syringe:")
     records = [DUMMY_DATA]  # get_appointments(args.date)
 
     try:
