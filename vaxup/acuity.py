@@ -1,6 +1,7 @@
 import json
 import os
-from typing import List, Tuple, Dict, Any
+import datetime
+from typing import List, Tuple, Dict, Any, Optional
 
 import requests
 
@@ -75,7 +76,7 @@ def transform_json(d: JSONDict) -> JSONDict:
     }
 
 
-def get_appointments(date: str = None, transform=True) -> JSONDict:
+def get_appointments(date: Optional[datetime.date] = None, transform=True) -> JSONDict:
     params = {"max": 2000}
     if date:
         params |= {"minDate": f"{date}T00:00", "maxDate": f"{date}T23:59"}

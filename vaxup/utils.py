@@ -1,4 +1,5 @@
 import os
+import datetime
 import sys
 
 from pydantic import ValidationError
@@ -12,7 +13,7 @@ from .web import AuthorizedEnroller
 from .console import console
 
 
-def check(date: str, fix: bool = False, show_all: bool = False) -> None:
+def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> None:
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
         records = get_appointments(date)
 
@@ -84,7 +85,7 @@ def check(date: str, fix: bool = False, show_all: bool = False) -> None:
             console.print()
 
 
-def enroll(date: str, dry_run: bool = False) -> None:
+def enroll(date: datetime.date, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
     records = [DUMMY_DATA]  # get_appointments(date)

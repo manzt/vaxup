@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import sys
 
 from .utils import check as check_appointments
@@ -6,7 +7,7 @@ from .utils import enroll as enroll_appointments
 
 
 def check(args: argparse.Namespace) -> None:
-    check_appointments(date=args.date, fix=args.fix, show_all=args.all)
+    check_appointments(date=args.date, fix=args.fix, show_all=args.show_all)
 
 
 def enroll(args: argparse.Namespace) -> None:
@@ -20,18 +21,14 @@ def main():
 
     # check
     parser_check = subparsers.add_parser("check")
-    parser_check.add_argument("date")
-    parser_check.add_argument(
-        "--fix", action="store_true", help="Edit invalid appointment data."
-    )
-    parser_check.add_argument(
-        "--all", action="store_true", help="List all appointments."
-    )
+    parser_check.add_argument("date", type=datetime.date.fromisoformat)
+    parser_check.add_argument("--fix", action="store_true")
+    parser_check.add_argument("--show-all", action="store_true")
     parser_check.set_defaults(func=check)
 
     # enroll
     parser_check = subparsers.add_parser("enroll")
-    parser_check.add_argument("date")
+    parser_check.add_argument("date", type=datetime.date.fromisoformat)
     parser_check.add_argument("--dry-run", action="store_true")
     parser_check.set_defaults(func=enroll)
 
