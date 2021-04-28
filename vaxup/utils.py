@@ -18,14 +18,17 @@ def check(date: str, fix: bool = False, show_all: bool = False) -> None:
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
         records = get_appointments(date)
 
+    # no appointments
     if len(records) == 0:
         console.print(f"No appointments scheduled for {date} :calendar:")
         sys.exit(0)
 
-    row_styles = None if show_all else ["none", "dim"]
-    table = Table(show_header=True, row_styles=row_styles, box=box.SIMPLE_HEAD)
+    table = Table(
+        show_header=True,
+        row_styles=None if show_all else ["none", "dim"],
+        box=box.SIMPLE_HEAD,
+    )
     table.add_column("appt. id", style="magenta")
-    # table.add_column("date", justify="center")
     table.add_column("time", justify="center")
     table.add_column("field", justify="right", style="yellow")
     table.add_column("value", style="bold yellow")
@@ -43,48 +46,51 @@ def check(date: str, fix: bool = False, show_all: bool = False) -> None:
                 str(err.id), err.time, "\n".join(err.names), "\n".join(err.values)
             )
 
-    if len(errors) > 0:
-        console.print(
-            f"[bold yellow]Oops! {len(errors)} of {len(records)} appointments need fixing 🛠️"
-        )
-        console.print(table)
-        if not fix:
-            console.print(
-                f"Run [yellow]vaxup check {date} --fix[/yellow] to fix interactively."
-            )
-        else:
-            for err in errors:
-                updates = []
-                for name, value in err.fields:
-                    update = Prompt.ask(name, default=value, console=console)
-                    if update != value:
-                        updates.append((name, value, update))
-
-                text = "\n".join(
-                    [
-                        f"{n}: [yellow]{v}[/yellow] -> [bold green]{u}[/bold green]"
-                        for n, v, u in updates
-                    ]
-                )
-                if len(updates) > 0 and Confirm.ask(text, console=console):
-                    updates = [(n, u) for n, _, u in updates]
-                    # TODO
-                    # res = edit_appointment(err.id, updates)
-                    # console.print(res)
-                console.print()
-    else:
+    # no errors
+    if len(errors) == 0:
         console.print(
             f"[bold green]All {len(records)} appointments passed[/bold green] 🎉"
         )
         if show_all:
             console.print(table)
+        sys.exit(0)
+
+    # handle errors
+    console.print(
+        f"[bold yellow]Oops! {len(errors)} of {len(records)} appointments need fixing 🛠️"
+    )
+    console.print(table)
+    if not fix:
+        console.print(
+            f"Run [yellow]vaxup check {date} --fix[/yellow] to fix interactively."
+        )
+    else:
+        for err in errors:
+            updates = []
+            for name, value in err.fields:
+                update = Prompt.ask(name, default=value, console=console)
+                if update != value:
+                    updates.append((name, value, update))
+
+            text = "\n".join(
+                [
+                    f"{n}: [yellow]{v}[/yellow] -> [bold green]{u}[/bold green]"
+                    for n, v, u in updates
+                ]
+            )
+            if len(updates) > 0 and Confirm.ask(text, console=console):
+                updates = [(n, u) for n, _, u in updates]
+                # TODO
+                # res = edit_appointment(err.id, updates)
+                # console.print(res)
+            console.print()
 
 
 def enroll(date: str, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
     console = Console()
-    records = [DUMMY_DATA]  # get_appointments(args.date)
+    records = [DUMMY_DATA]  # get_appointments(date)
 
     try:
         entries = [FormEntry(**record) for record in records]

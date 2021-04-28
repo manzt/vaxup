@@ -187,7 +187,7 @@ class AuthorizedEnroller:
         el = self._find_element("//*[contains(text(),'Appointment #')]")
         return el.text.lstrip("Appointment #:")
 
-    def _register(self, entry: FormEntry):
+    def _schedule(self, entry: FormEntry):
         self.driver.get(URL)
 
         self._select_date(date=entry.date_str, time=entry.time_str)
@@ -211,7 +211,9 @@ class AuthorizedEnroller:
 
     def schedule_appointments(self, entries: Iterable[FormEntry], console=None):
         console = console if console else Console(quiet=True)
+
         with console.status("Logging in...", spinner="earth") as status:
+
             for location, appointments in group_entries(entries=entries):
                 status.update(
                     f"[magenta]Logging into {location.name} for {self._username}...",
@@ -224,9 +226,10 @@ class AuthorizedEnroller:
                     spinner="bouncingBall",
                     spinner_style="yellow",
                 )
+
                 for entry in appointments:
                     try:
-                        appt_num = self._register(entry=entry)
+                        appt_num = self._schedule(entry=entry)
                         console.log(
                             f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {appt_num}"
                         )

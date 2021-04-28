@@ -1,8 +1,10 @@
 import json
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 import requests
+
+JSONDict = Dict[str, Any]
 
 ACUITY_URL = "https://acuityscheduling.com/api/v1"
 
@@ -35,11 +37,11 @@ FIELD_IDS = {
 FIELD_MAP = {k: v for k, v in FIELD_IDS.items() if not v.startswith("_")}
 
 
-def _assert_correct_form(form):
+def _assert_correct_form(form: JSONDict) -> None:
     assert form["id"] == ACUITY_FORM_ID, "Acuity form not found"
 
 
-def _assert_has_all_fields(fields):
+def _assert_has_all_fields(fields: JSONDict) -> None:
     for field in fields:
         msg = f"Field not found in mapping, {field['name']=} {field['id']=}"
         assert field["id"] in FIELD_IDS, msg
@@ -51,7 +53,7 @@ def check_acuity_mapping():
     _assert_has_all_fields(form["fields"])
 
 
-def transform_json(d):
+def transform_json(d: JSONDict) -> JSONDict:
     record = dict(
         id=d["id"],
         first_name=d["firstName"],
@@ -73,7 +75,7 @@ def transform_json(d):
     }
 
 
-def get_appointments(date: str = None, transform=True):
+def get_appointments(date: str = None, transform=True) -> JSONDict:
     params = {"max": 2000}
     if date:
         params |= {"minDate": f"{date}T00:00", "maxDate": f"{date}T23:59"}
@@ -93,6 +95,6 @@ def edit_appointment(appt_id: int, fields=List[Tuple[str, str]]):
     return res
 
 
-def get_forms():
+def get_forms() -> JSONDict:
     response = requests.get(url=f"{ACUITY_URL}/forms", auth=AUTH)
     return response.json()
