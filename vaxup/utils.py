@@ -11,7 +11,7 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from .acuity import get_appointments
-from .data import FormEntry, FormError
+from .data import VaxAppointment, VaxAppointmentError
 from .web import AuthorizedEnroller
 
 console = Console()
@@ -19,10 +19,11 @@ console = Console()
 
 def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> None:
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
-        records = get_appointments(date)
+        appointments = get_appointments(date)
+    num_appointments = len(appointments)
 
     # no appointments
-    if len(records) == 0:
+    if num_appointments == 0:
         console.print(f"No appointments scheduled for {date} :calendar:")
         sys.exit(0)
 
@@ -37,13 +38,13 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     table.add_column("value", style="bold yellow")
 
     errors = []
-    for record in records:
+    for apt in appointments:
         try:
-            entry = FormEntry(**record)
+            entry = VaxAppointment.from_acuity(apt)
             if show_all:
                 table.add_row(str(entry.id), entry.time_str, "", "", style="green")
         except ValidationError as e:
-            err = FormError.from_err(e, record)
+            err = VaxAppointmentError.from_err(e, apt)
             errors.append(err)
             table.add_row(
                 str(err.id), err.time, "\n".join(err.names), "\n".join(err.values)
@@ -52,7 +53,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     # no errors
     if len(errors) == 0:
         console.print(
-            f"[bold green]All {len(records)} appointments passed[/bold green] 🎉"
+            f"[bold green]All {num_appointments} appointments passed[/bold green] 🎉"
         )
         if show_all:
             console.print(table)
@@ -60,7 +61,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
 
     # handle errors
     console.print(
-        f"[bold yellow]Oops! {len(errors)} of {len(records)} appointments need fixing 🛠️"
+        f"[bold yellow]Oops! {len(errors)} of {num_appointments} appointments need fixing 🛠️"
     )
     console.print(table)
     if not fix:
@@ -89,7 +90,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
             console.print()
 
 
-def group_entries(entries: Iterable[FormEntry]):
+def group_entries(entries: Iterable[VaxAppointment]):
     sorted_entries = sorted(entries, key=lambda e: e.location.value)
     return groupby(sorted_entries, key=lambda e: e.location)
 
@@ -104,7 +105,8 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         sys.exit(0)
 
     try:
-        entries = [FormEntry(**record) for record in records]
+        # entries = list(map(VaxAppointment.from_acuity, records))
+        entries = [VaxAppointment(**r) for r in records]
     except ValidationError:
         console.print("[red bold]Error with Acuity data export[/red bold]")
         sys.exit(1)

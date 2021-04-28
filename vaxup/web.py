@@ -4,7 +4,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .data import Ethnicity, FormEntry, Location, Race, Sex
+from .data import Ethnicity, Location, Race, Sex, VaxAppointment
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
@@ -108,7 +108,7 @@ class AuthorizedEnroller:
         # Click "NO"
         self._find_element("//input[@value='No']/following-sibling::label").click()
 
-    def _fill_personal_information(self, entry: FormEntry):
+    def _fill_personal_information(self, entry: VaxAppointment):
         def create_finder(xpath_template: str):
             def find_element(value: str):
                 xpath = xpath_template.format(value)
@@ -186,7 +186,7 @@ class AuthorizedEnroller:
         )
         self._current_location = location
 
-    def schedule_appointment(self, entry: FormEntry):
+    def schedule_appointment(self, entry: VaxAppointment):
         # implicit login if current location doesn't match
         if entry.location != self._current_location:
             self.login(location=entry.location)

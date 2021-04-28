@@ -14,7 +14,7 @@ def enroll(args: argparse.Namespace) -> None:
     enroll_appointments(date=args.date, dry_run=args.dry_run)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
     subparsers.required = True
