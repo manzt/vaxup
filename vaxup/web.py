@@ -1,7 +1,3 @@
-from itertools import groupby
-from typing import Iterable, Optional
-
-from rich.console import Console
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -54,30 +50,23 @@ ETHNICITY = {
 }
 
 
-def group_entries(entries: Iterable[FormEntry]):
-    sorted_entries = sorted(entries, key=lambda e: e.location.value)
-    return groupby(sorted_entries, key=lambda e: e.location)
-
-
 class AuthorizedEnroller:
     def __init__(
         self,
         username: str,
         password: str,
         test: bool = False,
-        console: Optional[Console] = None,
     ):
         self._username = username
         self._password = password
         self._test = test
-        self._console = Console(quiet=True) if not console else console
+        self._current_location = None
+        self.driver = webdriver.Chrome()
 
-        with self._console.status("Initialing web-driver..."):
-            self.driver = webdriver.Chrome()
-            # Defaults for driver
-            self.driver.set_window_position(0, 0)
-            self.driver.set_window_size(1024, 700)
-            self.driver.implicitly_wait(15)
+        # Defaults for driver
+        self.driver.set_window_position(0, 0)
+        self.driver.set_window_size(1024, 700)
+        self.driver.implicitly_wait(15)
 
     def __enter__(self):
         return self
@@ -87,21 +76,6 @@ class AuthorizedEnroller:
 
     def _find_element(self, xpath: str):
         return self.driver.find_element(By.XPATH, xpath)
-
-    def _login_for(self, location: Location):
-        self.driver.get(LOGIN_URL)
-        self._find_element("//input[@id='emailAddress-0']").send_keys(self._username)
-        self._find_element("//input[@id='loginPassword-0']").send_keys(self._password)
-        self._find_element("//lightning-button/button[text()='Log in']").click()
-        WebDriverWait(self.driver, 15).until(
-            lambda d: d.current_url == URL, "Failed to login."
-        )
-
-        self._select_location(location=location)
-        WebDriverWait(self.driver, 15).until(
-            EC.presence_of_element_located((By.XPATH, TIME_STAMP_XPATH)),
-            "Failed to select location.",
-        )
 
     def _select_location(self, location: Location):
         data_id = LOCATION[location]
@@ -195,8 +169,29 @@ class AuthorizedEnroller:
         el = self._find_element("//*[contains(text(),'Appointment #')]")
         return el.text.lstrip("Appointment #:")
 
-    def _schedule(self, entry: FormEntry):
-        self.driver.get(URL)
+    # Explicit login to location
+    def login(self, location: Location):
+        self.driver.get(LOGIN_URL)
+        self._find_element("//input[@id='emailAddress-0']").send_keys(self._username)
+        self._find_element("//input[@id='loginPassword-0']").send_keys(self._password)
+        self._find_element("//lightning-button/button[text()='Log in']").click()
+        WebDriverWait(self.driver, 15).until(
+            lambda d: d.current_url == URL, "Failed to login."
+        )
+
+        self._select_location(location=location)
+        WebDriverWait(self.driver, 15).until(
+            EC.presence_of_element_located((By.XPATH, TIME_STAMP_XPATH)),
+            "Failed to select location.",
+        )
+        self._current_location = location
+
+    def schedule_appointment(self, entry: FormEntry):
+        # implicit login if current location doesn't match
+        if entry.location != self._current_location:
+            self.login(location=entry.location)
+        else:
+            self.driver.get(URL)
 
         self._select_date(date=entry.date_str, time=entry.time_str)
         self._click_next(first=True)
@@ -216,32 +211,3 @@ class AuthorizedEnroller:
         if not self._test:
             self._click_next()
             return self._get_appt_number()
-
-    def schedule_appointments(self, entries: Iterable[FormEntry]):
-
-        with self._console.status("Logging in...", spinner="earth") as status:
-
-            for location, appointments in group_entries(entries=entries):
-                status.update(
-                    f"[magenta]Logging into {location.name} for {self._username}...",
-                    spinner="earth",
-                )
-                # Need to re-login per location
-                self._login_for(location=location)
-                status.update(
-                    status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
-                    spinner="bouncingBall",
-                    spinner_style="yellow",
-                )
-
-                for entry in appointments:
-                    try:
-                        appt_num = self._schedule(entry=entry)
-                        self._console.log(
-                            f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {appt_num}"
-                        )
-                    except Exception as e:
-                        self._console.log(
-                            f"[red bold]Failure[/red bold] - {location.name} {entry.date_str} @ {entry.time_str}"
-                        )
-                        self._console.log(e)

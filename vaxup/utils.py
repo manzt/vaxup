@@ -1,6 +1,8 @@
 import datetime
 import os
 import sys
+from itertools import groupby
+from typing import Iterable
 
 from pydantic import ValidationError
 from rich import box
@@ -87,10 +89,19 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
             console.print()
 
 
+def group_entries(entries: Iterable[FormEntry]):
+    sorted_entries = sorted(entries, key=lambda e: e.location.value)
+    return groupby(sorted_entries, key=lambda e: e.location)
+
+
 def enroll(date: datetime.date, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
-    records = [DUMMY_DATA]  # get_appointments(date)
+    records = DUMMY_DATA  # get_appointments(date)
+
+    if len(records) == 0:
+        console.print(f"No appointments to schedule for {date} :calendar:")
+        sys.exit(0)
 
     try:
         entries = [FormEntry(**record) for record in records]
@@ -106,6 +117,30 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         username = console.input("[blue]Username[/blue]: ")
         password = console.input("[blue]Password[/blue]: ", password=True)
 
-    if len(records) > 0:
-        enroller = AuthorizedEnroller(username, password, dry_run, console=console)
-        enroller.schedule_appointments(entries=entries)
+    with console.status("Initialing web-driver...") as status:
+        enroller = AuthorizedEnroller(username, password, dry_run)
+
+        for location, appointments in group_entries(entries=entries):
+
+            status.update(
+                f"[magenta]Logging into {location.name} for {username}...",
+                spinner="earth",
+            )
+            enroller.login(location=location)
+
+            status.update(
+                status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
+                spinner="bouncingBall",
+                spinner_style="yellow",
+            )
+            for entry in appointments:
+                try:
+                    appt_num = enroller.schedule_appointment(entry=entry)
+                    console.log(
+                        f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {appt_num}"
+                    )
+                except Exception as e:
+                    console.log(
+                        f"[red bold]Failure[/red bold] - {location.name} {entry.date_str} @ {entry.time_str}"
+                    )
+                    console.log(e)
