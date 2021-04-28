@@ -1,16 +1,18 @@
-import os
 import datetime
+import os
 import sys
 
 from pydantic import ValidationError
 from rich import box
+from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from .acuity import get_appointments
 from .data import FormEntry, FormError
 from .web import AuthorizedEnroller
-from .console import console
+
+console = Console()
 
 
 def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> None:
@@ -105,5 +107,5 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         password = console.input("[blue]Password[/blue]: ", password=True)
 
     if len(records) > 0:
-        enroller = AuthorizedEnroller(username, password, dry_run)
+        enroller = AuthorizedEnroller(username, password, dry_run, console=console)
         enroller.schedule_appointments(entries=entries)

@@ -1,7 +1,7 @@
+import datetime
 import json
 import os
-import datetime
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 

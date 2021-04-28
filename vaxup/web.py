@@ -1,6 +1,7 @@
 from itertools import groupby
-from typing import Iterable
+from typing import Iterable, Optional
 
+from rich.console import Console
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -8,7 +9,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from .data import Ethnicity, FormEntry, Location, Race, Sex
-from .console import console
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
@@ -60,12 +60,19 @@ def group_entries(entries: Iterable[FormEntry]):
 
 
 class AuthorizedEnroller:
-    def __init__(self, username: str, password: str, test: bool = False):
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        test: bool = False,
+        console: Optional[Console] = None,
+    ):
         self._username = username
         self._password = password
         self._test = test
+        self._console = Console(quiet=True) if not console else console
 
-        with console.status("Initialing web-driver..."):
+        with self._console.status("Initialing web-driver..."):
             self.driver = webdriver.Chrome()
             # Defaults for driver
             self.driver.set_window_position(0, 0)
@@ -212,7 +219,7 @@ class AuthorizedEnroller:
 
     def schedule_appointments(self, entries: Iterable[FormEntry]):
 
-        with console.status("Logging in...", spinner="earth") as status:
+        with self._console.status("Logging in...", spinner="earth") as status:
 
             for location, appointments in group_entries(entries=entries):
                 status.update(
@@ -230,11 +237,11 @@ class AuthorizedEnroller:
                 for entry in appointments:
                     try:
                         appt_num = self._schedule(entry=entry)
-                        console.log(
+                        self._console.log(
                             f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {appt_num}"
                         )
                     except Exception as e:
-                        console.log(
+                        self._console.log(
                             f"[red bold]Failure[/red bold] - {location.name} {entry.date_str} @ {entry.time_str}"
                         )
-                        console.log(e)
+                        self._console.log(e)
