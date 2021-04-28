@@ -105,6 +105,5 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         password = console.input("[blue]Password[/blue]: ", password=True)
 
     if len(records) > 0:
-        with console.status("Initialing web-driver..."):
-            enroller = AuthorizedEnroller(username, password, dry_run)
+        enroller = AuthorizedEnroller(username, password, dry_run)
         enroller.schedule_appointments(entries=entries)

@@ -64,12 +64,13 @@ class AuthorizedEnroller:
         self._username = username
         self._password = password
         self._test = test
-        self.driver = webdriver.Chrome()
 
-        # Defaults for driver
-        self.driver.set_window_position(0, 0)
-        self.driver.set_window_size(1024, 700)
-        self.driver.implicitly_wait(15)
+        with console.status("Initialing web-driver..."):
+            self.driver = webdriver.Chrome()
+            # Defaults for driver
+            self.driver.set_window_position(0, 0)
+            self.driver.set_window_size(1024, 700)
+            self.driver.implicitly_wait(15)
 
     def __enter__(self):
         return self
