@@ -11,7 +11,10 @@ ACUITY_URL = "https://acuityscheduling.com/api/v1"
 
 ACUITY_FORM_ID = 1717791  # "CHN Vaccine Scheduling Intake Form"
 
-AUTH = (os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"])
+
+def get_auth():
+    return os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]
+
 
 # Maps acuity intake form field 'id' -> 'name'
 FIELD_IDS = {
@@ -80,7 +83,9 @@ def get_appointments(date: Optional[datetime.date] = None, transform=True) -> JS
     params = {"max": 2000}
     if date:
         params |= {"minDate": f"{date}T00:00", "maxDate": f"{date}T23:59"}
-    response = requests.get(url=f"{ACUITY_URL}/appointments", auth=AUTH, params=params)
+    response = requests.get(
+        url=f"{ACUITY_URL}/appointments", auth=get_auth(), params=params
+    )
     data = response.json()
     return data if not transform else list(map(transform_json, data))
 
@@ -90,12 +95,12 @@ def edit_appointment(appt_id: int, fields=List[Tuple[str, str]]):
     fields = [{"id": id_map[k], "value": v} for k, v in fields]
     res = requests.put(
         url=f"{ACUITY_URL}/appointments/{appt_id}",
-        auth=AUTH,
+        auth=get_auth(),
         data=json.dumps({"fields": fields}),
     )
     return res
 
 
 def get_forms() -> JSONDict:
-    response = requests.get(url=f"{ACUITY_URL}/forms", auth=AUTH)
+    response = requests.get(url=f"{ACUITY_URL}/forms", auth=get_auth())
     return response.json()
