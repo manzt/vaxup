@@ -1,10 +1,9 @@
 import re
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Literal, Optional, List, Tuple
 
-from pydantic import EmailStr, validator
-from pydantic.error_wrappers import ValidationError
+from pydantic import EmailStr, validator, ValidationError
 from pydantic.types import PositiveInt
 
 # Improve intellisense for VSCode
@@ -47,13 +46,12 @@ class Ethnicity(Enum):
 
 class Config:
     anystr_strip_whitespace = True
-    extra = "ignore"
 
 
 @dataclass(config=Config)
 class FormEntry:
-    id: Optional[int]
-    start_time: datetime
+    id: PositiveInt
+    datetime: datetime
     first_name: str
     last_name: str
     phone: Optional[PositiveInt]
@@ -72,11 +70,11 @@ class FormEntry:
 
     @property
     def date_str(self):
-        return self.start_time.strftime("%m/%d/%Y")
+        return self.datetime.strftime("%m/%d/%Y")
 
     @property
     def time_str(self):
-        return self.start_time.strftime("%I:%M %p")
+        return self.datetime.strftime("%I:%M %p")
 
     @property
     def dob_str(self):
@@ -88,7 +86,7 @@ class FormEntry:
             raise ValueError("Empty field.")
         return v
 
-    @validator("start_time")
+    @validator("datetime")
     def strip_tzinfo(cls, dt):
         return dt.replace(tzinfo=None)
 
@@ -150,13 +148,10 @@ class FormError:
         return [f[1] for f in self.fields]
 
     @classmethod
-    def from_err(cls, e: ValidationError, record: Any):
-        fields = [(err["loc"][0], record[err["loc"][0]]) for err in e.errors()]
-        return cls(id=record["id"], datetime=record["start_time"], fields=fields)
-
-    @validator("datetime")
-    def strip_tzinfo(cls, dt):
-        return dt.replace(tzinfo=None)
+    def from_err(cls, e: ValidationError, apt: "vaxup.acuity.Appointment"):
+        d = apt.as_entry_dict()
+        fields = [(err["loc"][0], d[err["loc"][0]]) for err in e.errors()]
+        return cls(id=apt.id, datetime=apt.datetime, fields=fields)
 
 
 DUMMY_DATA = [
@@ -164,7 +159,7 @@ DUMMY_DATA = [
         "id": 100000,
         "first_name": "Trevor",
         "last_name": "Manz",
-        "start_time": "2021-04-28T21:30",
+        "datetime": "2021-04-28T21:30",
         "phone": "7158289308",
         "email": "trevmanz94@gmail.com",
         "location": Location.EAST_NY.value,

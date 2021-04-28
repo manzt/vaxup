@@ -1,22 +1,20 @@
 import datetime
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import requests
+from pydantic import BaseModel, validator
+from pydantic.fields import Field
+from pydantic.types import PositiveInt
 
-JSONDict = Dict[str, Any]
-
+# Acuity API URL
 ACUITY_URL = "https://acuityscheduling.com/api/v1"
-
-ACUITY_FORM_ID = 1717791  # "CHN Vaccine Scheduling Intake Form"
-
-
-def get_auth():
-    return os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]
-
-
-# Maps acuity intake form field 'id' -> 'name'
+# Acuity ID for intake form titled "CHN Vaccine Scheduling Intake Form"
+ACUITY_FORM_ID = 1717791
+# Acuity appointments/ endpoint is limited to 100 by default.
+MAX_PER_RESPONSE = 5000
+# Maps Acuity intake form field 'id' -> 'name'
 FIELD_IDS = {
     9519119: "dob",
     9519125: "street_address",
@@ -37,60 +35,80 @@ FIELD_IDS = {
     9605968: "_link",
 }
 
-# Ignore fields that are prefixed with "_"; we don't use them in vaxup
-FIELD_MAP = {k: v for k, v in FIELD_IDS.items() if not v.startswith("_")}
+
+class FormValue(BaseModel):
+    id: PositiveInt
+    fieldID: PositiveInt
+    value: str
+    name: str
+
+    @validator("fieldID")
+    def known_field(cls, v: int):
+        assert v in FIELD_IDS, "Field not found in mapping"
+        return v
+
+    @property
+    def field(self):
+        return FIELD_IDS[self.fieldID]
+
+    @property
+    def keep(self):
+        # Ignore fields that are prefixed with "_"; we don't use them in vaxup
+        return not self.field.startswith("_")
 
 
-def _assert_correct_form(form: JSONDict) -> None:
-    assert form["id"] == ACUITY_FORM_ID, "Acuity form not found"
+class Form(BaseModel):
+    id: PositiveInt
+    name: str
+    values: List[FormValue]
+
+    @validator("id")
+    def known_form(cls, v: int):
+        assert v == ACUITY_FORM_ID, "Acuity form not found"
+        return v
 
 
-def _assert_has_all_fields(fields: JSONDict) -> None:
-    for field in fields:
-        msg = f"Field not found in mapping, {field['name']=} {field['id']=}"
-        assert field["id"] in FIELD_IDS, msg
+class Appointment(BaseModel):
+    id: PositiveInt
+    first_name: str = Field(alias="firstName")
+    last_name: str = Field(alias="lastName")
+    phone: str
+    email: str
+    datetime: str = Field(alias="datetime")
+    location: str = Field(alias="calendar")
+    forms: List[Form]
+
+    def as_entry_dict(self) -> Dict[str, Any]:
+        record = self.dict(exclude={"forms"})
+        form = self.forms[0]
+        return record | {d.field: d.value for d in form.values if d.keep}
 
 
-def check_acuity_mapping():
-    form = get_forms()[0]
-    _assert_correct_form(form)
-    _assert_has_all_fields(form["fields"])
+def get_auth() -> Tuple[str, str]:
+    return os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]
 
 
-def transform_json(d: JSONDict) -> JSONDict:
-    record = dict(
-        id=d["id"],
-        first_name=d["firstName"],
-        last_name=d["lastName"],
-        email=d["email"],
-        phone=d["phone"],
-        start_time=d["datetime"],
-        location=d["calendar"],
+def get_appointments(date: datetime.date) -> List[Appointment]:
+    res = requests.get(
+        url=f"{ACUITY_URL}/appointments",
+        auth=get_auth(),
+        params={
+            "max": MAX_PER_RESPONSE,
+            "minDate": f"{date}T00:00",
+            "maxDate": f"{date}T23:59",
+        },
     )
-
-    # Grab first form and assert it is correct
-    form = d["forms"][0]
-    _assert_correct_form(form)
-
-    return record | {
-        FIELD_MAP[val["fieldID"]]: val["value"]
-        for val in form["values"]
-        if val["fieldID"] in FIELD_MAP
-    }
+    res.raise_for_status()
+    return [Appointment(**d) for d in res.json()]
 
 
-def get_appointments(date: Optional[datetime.date] = None, transform=True) -> JSONDict:
-    params = {"max": 2000}
-    if date:
-        params |= {"minDate": f"{date}T00:00", "maxDate": f"{date}T23:59"}
-    response = requests.get(
-        url=f"{ACUITY_URL}/appointments", auth=get_auth(), params=params
-    )
-    data = response.json()
-    return data if not transform else list(map(transform_json, data))
+def get_appointment(appt_id: int) -> Appointment:
+    res = requests.get(url=f"{ACUITY_URL}/appointments/{appt_id}", auth=get_auth())
+    res.raise_for_status()
+    return Appointment(**res.json())
 
 
-def edit_appointment(appt_id: int, fields=List[Tuple[str, str]]):
+def edit_appointment(appt_id: int, fields=List[Tuple[str, str]]) -> Appointment:
     id_map = {v: k for k, v in FIELD_IDS.items()}
     fields = [{"id": id_map[k], "value": v} for k, v in fields]
     res = requests.put(
@@ -98,9 +116,13 @@ def edit_appointment(appt_id: int, fields=List[Tuple[str, str]]):
         auth=get_auth(),
         data=json.dumps({"fields": fields}),
     )
-    return res
+    res.raise_for_status()
+    return Appointment(**res.json())
 
 
-def get_forms() -> JSONDict:
-    response = requests.get(url=f"{ACUITY_URL}/forms", auth=get_auth())
-    return response.json()
+if __name__ == "__main__":
+    import sys
+
+    from rich import print
+
+    print(get_appointment(sys.argv[1]))

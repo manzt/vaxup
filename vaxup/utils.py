@@ -39,7 +39,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     errors = []
     for record in records:
         try:
-            entry = FormEntry(**record)
+            entry = FormEntry(**record.as_entry_dict())
             if show_all:
                 table.add_row(str(entry.id), entry.time_str, "", "", style="green")
         except ValidationError as e:
@@ -97,7 +97,7 @@ def group_entries(entries: Iterable[FormEntry]):
 def enroll(date: datetime.date, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
-    records = DUMMY_DATA  # get_appointments(date)
+    records = [DUMMY_DATA]  # get_appointments(date)
 
     if len(records) == 0:
         console.print(f"No appointments to schedule for {date} :calendar:")
