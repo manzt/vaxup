@@ -1,8 +1,7 @@
 import re
 from datetime import datetime
 from enum import Enum
-from itertools import groupby
-from typing import TYPE_CHECKING, Any, Iterable, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
 
 from pydantic import EmailStr, validator
 from pydantic.error_wrappers import ValidationError
@@ -126,11 +125,6 @@ class FormEntry:
         if isinstance(v, datetime):
             return v
         return datetime.strptime(v.strip(), "%m/%d/%Y")
-
-
-def group_entries(entries: Iterable[FormEntry]):
-    sorted_entries = sorted(entries, key=lambda e: e.location.value)
-    return groupby(sorted_entries, key=lambda e: e.location)
 
 
 @dataclass

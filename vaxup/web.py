@@ -1,3 +1,4 @@
+from itertools import groupby
 from typing import Iterable
 
 from rich.console import Console
@@ -7,11 +8,10 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from vaxup.data import Ethnicity, FormEntry, Location, Race, Sex, group_entries
+from .data import Ethnicity, FormEntry, Location, Race, Sex
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
-
 TIME_STAMP_XPATH = "//c-vcms-book-appointment/article/div[4]/div[2]"
 
 
@@ -52,6 +52,11 @@ ETHNICITY = {
     Ethnicity.NOT_LATINX: "No, not Hispanic, Latino, or Latina",
     Ethnicity.PERFER_NOT_TO_ANSWER: "Prefer not to answer",
 }
+
+
+def group_entries(entries: Iterable[FormEntry]):
+    sorted_entries = sorted(entries, key=lambda e: e.location.value)
+    return groupby(sorted_entries, key=lambda e: e.location)
 
 
 class AuthorizedEnroller:
