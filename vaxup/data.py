@@ -1,8 +1,7 @@
 import re
 from datetime import datetime
 from enum import Enum
-from itertools import groupby
-from typing import TYPE_CHECKING, Any, Iterable, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
 
 from pydantic import EmailStr, validator
 from pydantic.error_wrappers import ValidationError
@@ -128,11 +127,6 @@ class FormEntry:
         return datetime.strptime(v.strip(), "%m/%d/%Y")
 
 
-def group_entries(entries: Iterable[FormEntry]):
-    sorted_entries = sorted(entries, key=lambda e: e.location.value)
-    return groupby(sorted_entries, key=lambda e: e.location)
-
-
 @dataclass
 class FormError:
     id: int
@@ -165,22 +159,24 @@ class FormError:
         return dt.replace(tzinfo=None)
 
 
-DUMMY_DATA = {
-    "id": 100000,
-    "first_name": "Trevor",
-    "last_name": "Manz",
-    "start_time": "2021-04-28T21:30",
-    "phone": "7158289308",
-    "email": "trevmanz94@gmail.com",
-    "location": Location.EAST_NY.value,
-    "dob": "07/07/1994",
-    "street_address": "500 WN street",
-    "city": "New York",
-    "state": "NY",
-    "apt": None,
-    "zip_code": "10001",
-    "race": Race.WHITE.value,
-    "ethnicity": Ethnicity.NOT_LATINX.value,
-    "sex": Sex.MALE.value,
-    "has_health_insurance": "yes",
-}
+DUMMY_DATA = [
+    {
+        "id": 100000,
+        "first_name": "Trevor",
+        "last_name": "Manz",
+        "start_time": "2021-04-28T21:30",
+        "phone": "7158289308",
+        "email": "trevmanz94@gmail.com",
+        "location": Location.EAST_NY.value,
+        "dob": "07/07/1994",
+        "street_address": "500 WN street",
+        "city": "New York",
+        "state": "NY",
+        "apt": None,
+        "zip_code": "10001",
+        "race": Race.WHITE.value,
+        "ethnicity": Ethnicity.NOT_LATINX.value,
+        "sex": Sex.MALE.value,
+        "has_health_insurance": "yes",
+    },
+]

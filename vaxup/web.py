@@ -1,17 +1,13 @@
-from typing import Iterable
-
-from rich.console import Console
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from vaxup.data import Ethnicity, FormEntry, Location, Race, Sex, group_entries
+from .data import Ethnicity, FormEntry, Location, Race, Sex
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
-
 TIME_STAMP_XPATH = "//c-vcms-book-appointment/article/div[4]/div[2]"
 
 
@@ -55,10 +51,16 @@ ETHNICITY = {
 
 
 class AuthorizedEnroller:
-    def __init__(self, username: str, password: str, test: bool = False):
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        test: bool = False,
+    ):
         self._username = username
         self._password = password
         self._test = test
+        self._current_location = None
         self.driver = webdriver.Chrome()
 
         # Defaults for driver
@@ -74,21 +76,6 @@ class AuthorizedEnroller:
 
     def _find_element(self, xpath: str):
         return self.driver.find_element(By.XPATH, xpath)
-
-    def _login_for(self, location: Location):
-        self.driver.get(LOGIN_URL)
-        self._find_element("//input[@id='emailAddress-0']").send_keys(self._username)
-        self._find_element("//input[@id='loginPassword-0']").send_keys(self._password)
-        self._find_element("//lightning-button/button[text()='Log in']").click()
-        WebDriverWait(self.driver, 15).until(
-            lambda d: d.current_url == URL, "Failed to login."
-        )
-
-        self._select_location(location=location)
-        WebDriverWait(self.driver, 15).until(
-            EC.presence_of_element_located((By.XPATH, TIME_STAMP_XPATH)),
-            "Failed to select location.",
-        )
 
     def _select_location(self, location: Location):
         data_id = LOCATION[location]
@@ -182,8 +169,29 @@ class AuthorizedEnroller:
         el = self._find_element("//*[contains(text(),'Appointment #')]")
         return el.text.lstrip("Appointment #:")
 
-    def _register(self, entry: FormEntry):
-        self.driver.get(URL)
+    # Explicit login to location
+    def login(self, location: Location):
+        self.driver.get(LOGIN_URL)
+        self._find_element("//input[@id='emailAddress-0']").send_keys(self._username)
+        self._find_element("//input[@id='loginPassword-0']").send_keys(self._password)
+        self._find_element("//lightning-button/button[text()='Log in']").click()
+        WebDriverWait(self.driver, 15).until(
+            lambda d: d.current_url == URL, "Failed to login."
+        )
+
+        self._select_location(location=location)
+        WebDriverWait(self.driver, 15).until(
+            EC.presence_of_element_located((By.XPATH, TIME_STAMP_XPATH)),
+            "Failed to select location.",
+        )
+        self._current_location = location
+
+    def schedule_appointment(self, entry: FormEntry):
+        # implicit login if current location doesn't match
+        if entry.location != self._current_location:
+            self.login(location=entry.location)
+        else:
+            self.driver.get(URL)
 
         self._select_date(date=entry.date_str, time=entry.time_str)
         self._click_next(first=True)
@@ -203,30 +211,3 @@ class AuthorizedEnroller:
         if not self._test:
             self._click_next()
             return self._get_appt_number()
-
-    def schedule_appointments(self, entries: Iterable[FormEntry], console=None):
-        console = console if console else Console(quiet=True)
-        with console.status("Logging in...", spinner="earth") as status:
-            for location, appointments in group_entries(entries=entries):
-                status.update(
-                    f"[magenta]Logging into {location.name} for {self._username}...",
-                    spinner="earth",
-                )
-                # Need to re-login per location
-                self._login_for(location=location)
-                status.update(
-                    status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
-                    spinner="bouncingBall",
-                    spinner_style="yellow",
-                )
-                for entry in appointments:
-                    try:
-                        appt_num = self._register(entry=entry)
-                        console.log(
-                            f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {appt_num}"
-                        )
-                    except Exception as e:
-                        console.log(
-                            f"[red bold]Failure[/red bold] - {location.name} {entry.date_str} @ {entry.time_str}"
-                        )
-                        console.log(e)
