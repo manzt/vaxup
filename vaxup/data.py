@@ -1,10 +1,12 @@
 import re
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, Optional, List, Tuple
+from typing import TYPE_CHECKING, List, Literal, Optional, Tuple
 
-from pydantic import EmailStr, validator, ValidationError
+from pydantic import EmailStr, ValidationError, validator
 from pydantic.types import PositiveInt
+
+from vaxup.acuity import Appointment
 
 # Improve intellisense for VSCode
 # https://github.com/microsoft/python-language-server/issues/1898
@@ -49,7 +51,7 @@ class Config:
 
 
 @dataclass(config=Config)
-class FormEntry:
+class VaxAppointment:
     id: PositiveInt
     datetime: datetime
     first_name: str
@@ -124,10 +126,16 @@ class FormEntry:
             return v
         return datetime.strptime(v.strip(), "%m/%d/%Y")
 
+    @classmethod
+    def from_acuity(cls, apt: Appointment):
+        record = apt.dict(exclude={"forms"})
+        record |= {d.field: d.value for d in apt.forms[0].values if d.keep}
+        return cls(**record)
+
 
 @dataclass
-class FormError:
-    id: int
+class VaxAppointmentError:
+    id: PositiveInt
     datetime: datetime
     fields: List[Tuple[str, str]]
 
@@ -148,9 +156,12 @@ class FormError:
         return [f[1] for f in self.fields]
 
     @classmethod
-    def from_err(cls, e: ValidationError, apt: "vaxup.acuity.Appointment"):
-        d = apt.as_entry_dict()
-        fields = [(err["loc"][0], d[err["loc"][0]]) for err in e.errors()]
+    def from_err(cls, e: ValidationError, apt: Appointment):
+        field_dict = {d.field: d.value for d in apt.forms[0].values}
+        fields = []
+        for err in e.errors():
+            name = err["loc"][0]
+            fields.append((name, field_dict[name]))
         return cls(id=apt.id, datetime=apt.datetime, fields=fields)
 
 

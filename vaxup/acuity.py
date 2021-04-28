@@ -78,11 +78,6 @@ class Appointment(BaseModel):
     location: str = Field(alias="calendar")
     forms: List[Form]
 
-    def as_entry_dict(self) -> Dict[str, Any]:
-        record = self.dict(exclude={"forms"})
-        form = self.forms[0]
-        return record | {d.field: d.value for d in form.values if d.keep}
-
 
 def get_auth() -> Tuple[str, str]:
     return os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]

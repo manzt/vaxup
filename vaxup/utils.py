@@ -11,7 +11,7 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from .acuity import get_appointments
-from .data import FormEntry, FormError
+from .data import VaxAppointment, VaxAppointmentError
 from .web import AuthorizedEnroller
 
 console = Console()
@@ -39,11 +39,11 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     errors = []
     for record in records:
         try:
-            entry = FormEntry(**record.as_entry_dict())
+            entry = VaxAppointment.from_acuity(record)
             if show_all:
                 table.add_row(str(entry.id), entry.time_str, "", "", style="green")
         except ValidationError as e:
-            err = FormError.from_err(e, record)
+            err = VaxAppointmentError.from_err(e, record)
             errors.append(err)
             table.add_row(
                 str(err.id), err.time, "\n".join(err.names), "\n".join(err.values)
@@ -89,7 +89,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
             console.print()
 
 
-def group_entries(entries: Iterable[FormEntry]):
+def group_entries(entries: Iterable[VaxAppointment]):
     sorted_entries = sorted(entries, key=lambda e: e.location.value)
     return groupby(sorted_entries, key=lambda e: e.location)
 
@@ -97,14 +97,15 @@ def group_entries(entries: Iterable[FormEntry]):
 def enroll(date: datetime.date, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
-    records = [DUMMY_DATA]  # get_appointments(date)
+    records = DUMMY_DATA  # get_appointments(date)
 
     if len(records) == 0:
         console.print(f"No appointments to schedule for {date} :calendar:")
         sys.exit(0)
 
     try:
-        entries = [FormEntry(**record) for record in records]
+        # entries = list(map(VaxAppointment.from_acuity, records))
+        entries = [VaxAppointment(**r) for r in records]
     except ValidationError:
         console.print("[red bold]Error with Acuity data export[/red bold]")
         sys.exit(1)
