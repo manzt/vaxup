@@ -1,7 +1,6 @@
 from itertools import groupby
 from typing import Iterable
 
-from rich.console import Console
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -9,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from .data import Ethnicity, FormEntry, Location, Race, Sex
+from .console import console
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
@@ -209,8 +209,7 @@ class AuthorizedEnroller:
             self._click_next()
             return self._get_appt_number()
 
-    def schedule_appointments(self, entries: Iterable[FormEntry], console=None):
-        console = console if console else Console(quiet=True)
+    def schedule_appointments(self, entries: Iterable[FormEntry]):
 
         with console.status("Logging in...", spinner="earth") as status:
 

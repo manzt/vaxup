@@ -3,18 +3,16 @@ import sys
 
 from pydantic import ValidationError
 from rich import box
-from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from .acuity import get_appointments
 from .data import FormEntry, FormError
 from .web import AuthorizedEnroller
+from .console import console
 
 
 def check(date: str, fix: bool = False, show_all: bool = False) -> None:
-    console = Console()
-
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
         records = get_appointments(date)
 
@@ -89,7 +87,6 @@ def check(date: str, fix: bool = False, show_all: bool = False) -> None:
 def enroll(date: str, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
-    console = Console()
     records = [DUMMY_DATA]  # get_appointments(date)
 
     try:
@@ -109,4 +106,4 @@ def enroll(date: str, dry_run: bool = False) -> None:
     if len(records) > 0:
         with console.status("Initialing web-driver..."):
             enroller = AuthorizedEnroller(username, password, dry_run)
-        enroller.schedule_appointments(entries=entries, console=console)
+        enroller.schedule_appointments(entries=entries)
