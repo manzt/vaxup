@@ -1,7 +1,7 @@
 import datetime
 import json
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 import requests
 from pydantic import BaseModel, validator
@@ -78,7 +78,7 @@ class Appointment(BaseModel):
     location: str = Field(alias="calendar")
     forms: List[Form]
 
-    def vax_dict(self):
+    def __vaxup__(self) -> Dict[str, Any]:
         base = self.dict(exclude={"forms"})
         return base | {fv.field: fv.value for fv in self.forms[0].values if fv.keep}
 
@@ -107,13 +107,22 @@ def get_appointment(appt_id: int) -> Appointment:
     return Appointment(**res.json())
 
 
-def edit_appointment(appt_id: int, fields=List[Tuple[str, str]]) -> Appointment:
-    id_map = {v: k for k, v in FIELD_IDS.items()}
-    fields = [{"id": id_map[k], "value": v} for k, v in fields]
+def edit_appointment(
+    appt_id: int,
+    fields: Optional[List[Tuple[str, str]]] = None,
+    notes: Optional[str] = None,
+) -> Appointment:
+    data = {}
+    if fields:
+        id_map = {v: k for k, v in FIELD_IDS.items()}
+        fields = [{"id": id_map[k], "value": v} for k, v in fields]
+        data |= {"fields": fields}
+    if notes:
+        data |= {"notes": notes}
     res = requests.put(
-        url=f"{ACUITY_URL}/appointments/{appt_id}",
+        url=f"{ACUITY_URL}/appointments/{appt_id}?admin=true",
         auth=get_auth(),
-        data=json.dumps({"fields": fields}),
+        data=json.dumps(data),
     )
     res.raise_for_status()
     return Appointment(**res.json())
@@ -124,4 +133,8 @@ if __name__ == "__main__":
 
     from rich import print
 
-    print(get_appointment(sys.argv[1]))
+    # data = get(sys.argv[1])
+    data = get_appointment(sys.argv[1])
+    print(data)
+    data = edit_appointment(data["id"], notes="")
+    print(data)

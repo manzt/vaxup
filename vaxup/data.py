@@ -128,7 +128,7 @@ class VaxAppointment:
 
     @classmethod
     def from_acuity(cls, apt: Appointment):
-        return cls(**apt.vax_dict())
+        return cls(**apt.__vaxup__())
 
 
 @dataclass
@@ -155,7 +155,7 @@ class VaxAppointmentError:
 
     @classmethod
     def from_err(cls, e: ValidationError, apt: Appointment):
-        d = apt.vax_dict()
+        d = apt.__vaxup__()
         fields = []
         for err in e.errors():
             name = err["loc"][0]
