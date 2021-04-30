@@ -2,6 +2,7 @@ import datetime
 import os
 import sys
 from itertools import groupby
+from time import sleep
 from typing import Iterable
 
 from pydantic import ValidationError
@@ -10,7 +11,7 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from .acuity import edit_appointment, get_appointments
+from .acuity import confirm_appointment, edit_appointment, get_appointments
 from .data import VaxAppointment, VaxAppointmentError
 from .web import AuthorizedEnroller
 
@@ -109,7 +110,10 @@ def group_entries(entries: Iterable[VaxAppointment]):
 def enroll(date: datetime.date, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
-    records = DUMMY_DATA  # get_appointments(date)
+    with console.status(f"Fetching appointments for {date}", spinner="earth"):
+        # records = get_appointments(date)
+        sleep(1)
+        records = DUMMY_DATA  # get_appointments(date)
 
     if len(records) == 0:
         console.print(f"No appointments to schedule for {date} :calendar:")
@@ -147,13 +151,19 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                 spinner_style="yellow",
             )
             for entry in appointments:
-                try:
-                    appt_num = enroller.schedule_appointment(entry=entry)
-                    console.log(
-                        f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {appt_num}"
-                    )
-                except Exception as e:
-                    console.log(
-                        f"[red bold]Failure[/red bold] - {location.name} {entry.date_str} @ {entry.time_str}"
-                    )
-                    console.log(e)
+                if entry.vax_appointment_id is None:
+                    try:
+                        vax_id = enroller.schedule_appointment(entry=entry)
+                        console.log(
+                            f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {vax_id}"
+                        )
+                        confirm_appointment(
+                            acuity_id=entry.id, vax_appointment_id=vax_id
+                        )
+                    except Exception as e:
+                        console.log(
+                            f"[red bold]Failure[/red bold] - {location.name} {entry.date_str} @ {entry.time_str}"
+                        )
+                        console.log(e)
+                else:
+                    console.print("Skipped")

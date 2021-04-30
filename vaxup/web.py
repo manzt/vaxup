@@ -1,6 +1,9 @@
+from typing import Optional
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -51,6 +54,12 @@ ETHNICITY = {
 
 
 class AuthorizedEnroller:
+    _username: str
+    _password: str
+    _test: bool
+    _current_location: Optional[Location]
+    driver: webdriver.Chrome
+
     def __init__(
         self,
         username: str,
@@ -74,14 +83,14 @@ class AuthorizedEnroller:
     def __exit__(self, *args):
         self.driver.close()
 
-    def _find_element(self, xpath: str):
+    def _find_element(self, xpath: str) -> WebElement:
         return self.driver.find_element(By.XPATH, xpath)
 
-    def _select_location(self, location: Location):
+    def _select_location(self, location: Location) -> None:
         data_id = LOCATION[location]
         self._find_element(f"//lightning-button[@data-id='{data_id}']").click()
 
-    def _select_date(self, date: str, time: str):
+    def _select_date(self, date: str, time: str) -> None:
         # Checks if date in middle of page matches our desired date.
         # If not, we need to input a new timestamp and wait until the server
         # responds with new options.
@@ -100,15 +109,15 @@ class AuthorizedEnroller:
         # Time must be formatted: HH:MM AM/PM
         self._find_element(f"//lightning-formatted-time[text()='{time}']").click()
 
-    def _click_next(self, first: bool = False):
+    def _click_next(self, first: bool = False) -> None:
         path = "//section/button"
         self._find_element(path if first else f"{path}[2]").click()
 
-    def _select_health_screening(self):
+    def _select_health_screening(self) -> None:
         # Click "NO"
         self._find_element("//input[@value='No']/following-sibling::label").click()
 
-    def _fill_personal_information(self, entry: VaxAppointment):
+    def _fill_personal_information(self, entry: VaxAppointment) -> None:
         def create_finder(xpath_template: str):
             def find_element(value: str):
                 xpath = xpath_template.format(value)
@@ -157,7 +166,7 @@ class AuthorizedEnroller:
         )
         find_checkbox(RACE[entry.race]).click()
 
-    def _health_insurance(self, has_health_insurance: bool):
+    def _health_insurance(self, has_health_insurance: bool) -> None:
         tmp = "//input[@name='{}' and @value='{}']/following-sibling::label"
         if has_health_insurance:
             self._find_element(tmp.format("haveInsurance", "Yes")).click()
@@ -165,7 +174,7 @@ class AuthorizedEnroller:
         else:
             self._find_element(tmp.format("haveInsurance", "No")).click()
 
-    def _get_appt_number(self):
+    def _get_appt_id(self) -> str:
         el = self._find_element("//*[contains(text(),'Appointment #')]")
         return el.text.lstrip("Appointment #:")
 
@@ -210,4 +219,4 @@ class AuthorizedEnroller:
         # Submit
         if not self._test:
             self._click_next()
-            return self._get_appt_number()
+            return self._get_appt_id()

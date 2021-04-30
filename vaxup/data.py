@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, List, Literal, Optional, Tuple
 
-from pydantic import EmailStr, ValidationError, validator
+from pydantic import ValidationError, validator
 from pydantic.types import PositiveInt
 
 from vaxup.acuity import Appointment
@@ -14,6 +14,12 @@ if TYPE_CHECKING:
     from dataclasses import dataclass
 else:
     from pydantic.dataclasses import dataclass as dataclass
+
+
+# Copied from VAX website <input name='email' pattern='....' />
+VAX_EMAIL_REGEX = re.compile(
+    r"^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-]+)((\.[a-zA-Z]{2,5})+)$"
+)
 
 
 class Location(Enum):
@@ -57,7 +63,7 @@ class VaxAppointment:
     first_name: str
     last_name: str
     phone: Optional[PositiveInt]
-    email: EmailStr
+    email: str
     location: Location
     dob: datetime
     street_address: str
@@ -69,6 +75,7 @@ class VaxAppointment:
     ethnicity: Ethnicity
     sex: Sex
     has_health_insurance: bool
+    vax_appointment_id: Optional[str]
 
     @property
     def date_str(self):
@@ -82,17 +89,11 @@ class VaxAppointment:
     def dob_str(self):
         return self.dob.strftime("%m/%d/%Y")
 
-    @validator("email")
-    def not_empty(cls, v):
-        if len(v) == 0:
-            raise ValueError("Empty field.")
-        return v
-
     @validator("datetime")
     def strip_tzinfo(cls, dt):
         return dt.replace(tzinfo=None)
 
-    @validator("apt")
+    @validator("apt", "vax_appointment_id")
     def empty_as_none(cls, v):
         return None if v == "" else v
 
@@ -107,6 +108,12 @@ class VaxAppointment:
             return "NY"
         if "JERSEY" in upper:
             return "NJ"
+        return v
+
+    @validator("email")
+    def email_regex(cls, v):
+        if VAX_EMAIL_REGEX.fullmatch(v) is None:
+            raise ValueError("Email doesn't match regex on VAX.")
         return v
 
     @validator("phone", pre=True)
@@ -168,7 +175,7 @@ class VaxAppointmentError:
 
 DUMMY_DATA = [
     {
-        "id": 100000,
+        "id": 581093290,
         "first_name": "Trevor",
         "last_name": "Manz",
         "datetime": "2021-05-01T17:30",
@@ -185,5 +192,26 @@ DUMMY_DATA = [
         "ethnicity": Ethnicity.NOT_LATINX.value,
         "sex": Sex.MALE.value,
         "has_health_insurance": "yes",
+        "vax_appointment_id": "",
+    },
+    {
+        "id": 581093290,
+        "first_name": "Trevor",
+        "last_name": "Manz",
+        "datetime": "2021-05-01T17:00",
+        "phone": "7158289308",
+        "email": "trevmanz94@gmail.com",
+        "location": Location.HARLEM.value,
+        "dob": "07/07/1994",
+        "street_address": "500 WN street",
+        "city": "New York",
+        "state": "NY",
+        "apt": None,
+        "zip_code": "10001",
+        "race": Race.WHITE.value,
+        "ethnicity": Ethnicity.NOT_LATINX.value,
+        "sex": Sex.MALE.value,
+        "has_health_insurance": "yes",
+        "vax_appointment_id": "",
     },
 ]

@@ -1,7 +1,7 @@
 import datetime
 import json
 import os
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from pydantic import BaseModel, validator
@@ -10,12 +10,15 @@ from pydantic.types import PositiveInt
 
 # Acuity API URL
 ACUITY_URL = "https://acuityscheduling.com/api/v1"
-# Acuity ID for intake form titled "CHN Vaccine Scheduling Intake Form"
-ACUITY_FORM_ID = 1717791
-# Acuity appointments/ endpoint is limited to 100 by default.
+# Acuity ID for intake form titled "CHN Vaccine Scheduling Intake Form" & "VAX Confirmation"
 MAX_PER_RESPONSE = 5000
 # Maps Acuity intake form field 'id' -> 'name'
+
+ACUITY_FORM_IDS = (1717791, 1751359)
+# Acuity appointments/ endpoint is limited to 100 by default.
+
 FIELD_IDS = {
+    # SCHEDULING FORM
     9519119: "dob",
     9519125: "street_address",
     9519126: "apt",
@@ -33,6 +36,8 @@ FIELD_IDS = {
     9519120: "_age",
     9605979: "_link",
     9605968: "_link",
+    # VAX CONFIRMATION
+    9715272: "vax_appointment_id",
 }
 
 
@@ -64,7 +69,7 @@ class Form(BaseModel):
 
     @validator("id")
     def known_form(cls, v: int):
-        assert v == ACUITY_FORM_ID, "Acuity form not found"
+        assert v in ACUITY_FORM_IDS, "Acuity form not found"
         return v
 
 
@@ -80,7 +85,13 @@ class Appointment(BaseModel):
 
     def __vaxup__(self) -> Dict[str, Any]:
         base = self.dict(exclude={"forms"})
-        return base | {fv.field: fv.value for fv in self.forms[0].values if fv.keep}
+        return base | {
+            fv.field: fv.value for form in self.forms for fv in form.values if fv.keep
+        }
+
+    @property
+    def on_vax(self):
+        return self.__vaxup__()["vax_appointment_id"] != ""
 
 
 def get_auth() -> Tuple[str, str]:
@@ -108,7 +119,7 @@ def get_appointment(appt_id: int) -> Appointment:
 
 
 def edit_appointment(
-    appt_id: int,
+    acuity_id: int,
     fields: Optional[List[Tuple[str, str]]] = None,
     notes: Optional[str] = None,
 ) -> Appointment:
@@ -117,15 +128,24 @@ def edit_appointment(
         id_map = {v: k for k, v in FIELD_IDS.items()}
         fields = [{"id": id_map[k], "value": v} for k, v in fields]
         data |= {"fields": fields}
-    if notes:
+    if isinstance(notes, str):
         data |= {"notes": notes}
+
     res = requests.put(
-        url=f"{ACUITY_URL}/appointments/{appt_id}?admin=true",
+        url=f"{ACUITY_URL}/appointments/{acuity_id}",
         auth=get_auth(),
         data=json.dumps(data),
+        params={"admin": "true"},
     )
+
     res.raise_for_status()
     return Appointment(**res.json())
+
+
+def confirm_appointment(acuity_id: int, vax_appointment_id: str):
+    return edit_appointment(
+        acuity_id=acuity_id, fields=[("vax_appointment_id", vax_appointment_id)]
+    )
 
 
 if __name__ == "__main__":
@@ -133,8 +153,5 @@ if __name__ == "__main__":
 
     from rich import print
 
-    # data = get(sys.argv[1])
     data = get_appointment(sys.argv[1])
-    print(data)
-    data = edit_appointment(data["id"], notes="")
-    print(data)
+    print(data.__vaxup__())
