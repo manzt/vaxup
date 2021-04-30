@@ -81,6 +81,7 @@ class Appointment(BaseModel):
     email: str
     datetime: str = Field(alias="datetime")
     location: str = Field(alias="calendar")
+    canceled: bool
     forms: List[Form]
 
     def __vaxup__(self) -> Dict[str, Any]:

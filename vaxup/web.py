@@ -118,7 +118,7 @@ class AuthorizedEnroller:
         # Click "NO"
         self._find_element("//input[@value='No']/following-sibling::label").click()
 
-    def _fill_personal_information(self, entry: VaxAppointment) -> None:
+    def _fill_personal_information(self, appt: VaxAppointment) -> None:
         def create_finder(xpath_template: str):
             def find_element(value: str):
                 xpath = xpath_template.format(value)
@@ -129,23 +129,23 @@ class AuthorizedEnroller:
         find_input = create_finder("//input[@name='{}']")
 
         # Required
-        find_input("firstName").send_keys(entry.first_name)
-        find_input("lastName").send_keys(entry.last_name)
-        find_input("dateOfBirth").send_keys(entry.dob_str)
-        find_input("email").send_keys(entry.email)
-        find_input("street").send_keys(entry.street_address)
-        find_input("zip").send_keys(entry.zip_code)
+        find_input("firstName").send_keys(appt.first_name)
+        find_input("lastName").send_keys(appt.last_name)
+        find_input("dateOfBirth").send_keys(appt.dob_str)
+        find_input("email").send_keys(appt.email)
+        find_input("street").send_keys(appt.street_address)
+        find_input("zip").send_keys(appt.zip_code)
 
         # Need to clear "NYC"
         el = find_input("city")
         el.clear()
-        el.send_keys(entry.city)
+        el.send_keys(appt.city)
 
         # Optional
-        if entry.phone:
-            find_input("mobile").send_keys(entry.phone)
-        if entry.apt:
-            find_input("aptNo").send_keys(entry.apt)
+        if appt.phone:
+            find_input("mobile").send_keys(appt.phone)
+        if appt.apt:
+            find_input("aptNo").send_keys(appt.apt)
 
         # Dropdowns. First action opens dropdown, second selects item from list.
         find_dropdown_item = create_finder(
@@ -153,19 +153,19 @@ class AuthorizedEnroller:
         )
 
         find_input("state").click()
-        find_dropdown_item(entry.state).click()
+        find_dropdown_item(appt.state).click()
 
         find_input("ethencity").click()
-        find_dropdown_item(ETHNICITY[entry.ethnicity]).click()
+        find_dropdown_item(ETHNICITY[appt.ethnicity]).click()
 
         find_input("sex").click()
-        find_dropdown_item(SEX[entry.sex]).click()
+        find_dropdown_item(SEX[appt.sex]).click()
 
         # Race checkbox
         find_checkbox = create_finder(
             "//input[@name='races' and @value='{}']/following-sibling::label"
         )
-        find_checkbox(RACE[entry.race]).click()
+        find_checkbox(RACE[appt.race]).click()
 
     def _health_insurance(self, has_health_insurance: bool) -> None:
         tmp = "//input[@name='{}' and @value='{}']/following-sibling::label"
@@ -196,17 +196,17 @@ class AuthorizedEnroller:
         )
         self._current_location = location
 
-    def schedule_appointment(self, entry: VaxAppointment):
-        if entry.vax_appointment_id is not None:
+    def schedule_appointment(self, appt: VaxAppointment):
+        if appt.vax_appointment_id is not None:
             raise ValueError("Appointment already registered on VAX.")
 
         # implicit login if current location doesn't match
-        if entry.location != self._current_location:
-            self.login(location=entry.location)
+        if appt.location != self._current_location:
+            self.login(location=appt.location)
         else:
             self.driver.get(URL)
 
-        self._select_date(date=entry.date_str, time=entry.time_str)
+        self._select_date(date=appt.date_str, time=appt.time_str)
         self._click_next(first=True)
 
         # select elgibility
@@ -215,27 +215,27 @@ class AuthorizedEnroller:
         self._select_health_screening()
         self._click_next()
 
-        self._fill_personal_information(entry=entry)
+        self._fill_personal_information(appt=appt)
         self._click_next()
 
-        self._health_insurance(has_health_insurance=entry.has_health_insurance)
+        self._health_insurance(has_health_insurance=appt.has_health_insurance)
 
         # Submit
         if not self._test:
             self._click_next()
             return self._get_appt_id()
 
-    def cancel_appointment(self, entry: VaxAppointment):
-        if entry.vax_appointment_id is None:
+    def cancel_appointment(self, appt: VaxAppointment):
+        if appt.vax_appointment_id is None:
             raise ValueError("No VAX Appointment Number.")
 
-        if entry.location != self._current_location:
-            self.login(location=entry.location)
+        if appt.location != self._current_location:
+            self.login(location=appt.location)
 
         self.driver.get(CHANGE_APPOINTMENT_URL)
         self._find_element(
             "//lightning-input[@data-id='appointmentIdField']"
-        ).send_keys(entry.vax_appointment_id)
+        ).send_keys(appt.vax_appointment_id)
         self._find_element("//lightning-button/button[text() = 'Search']").click()
         self._find_element("//button[@name='cancel' and @data-index='0']").click()
         self._find_element("//button[text() = 'Yes']").click()

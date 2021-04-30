@@ -1,5 +1,6 @@
 import datetime
 import os
+from re import A
 import sys
 from itertools import groupby
 from time import sleep
@@ -47,20 +48,20 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     table.add_column("value", style="bold yellow")
 
     errors = []
-    for apt in appointments:
+    for appt in appointments:
         try:
-            entry = VaxAppointment.from_acuity(apt)
+            vax_appt = VaxAppointment.from_acuity(appt)
             if show_all:
                 table.add_row(
-                    str(entry.id),
-                    entry.location.name,
-                    entry.time_str,
+                    str(vax_appt.id),
+                    vax_appt.location.name,
+                    vax_appt.time_str,
                     "",
                     "",
                     style="green",
                 )
         except ValidationError as e:
-            err = VaxAppointmentError.from_err(e, apt)
+            err = VaxAppointmentError.from_err(e, appt)
             errors.append(err)
             table.add_row(
                 str(err.id),
@@ -104,14 +105,13 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
             )
             if len(updates) > 0 and Confirm.ask(text, console=console):
                 updates = [(n, u) for n, _, u in updates]
-                # TODO
                 edit_appointment(err.id, updates)
             console.print()
 
 
-def group_entries(entries: Iterable[VaxAppointment]):
-    sorted_entries = sorted(entries, key=lambda e: e.location.value)
-    return groupby(sorted_entries, key=lambda e: e.location)
+def groupby_location(vax_appts: Iterable[VaxAppointment]):
+    sorted_appts = sorted(vax_appts, key=lambda e: e.location.value)
+    return groupby(sorted_appts, key=lambda e: e.location)
 
 
 def get_login():
@@ -132,15 +132,15 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
         # records = get_appointments(date)
         sleep(1)
-        records = DUMMY_DATA  # get_appointments(date)
+        appointments = [get_appointment(acuity_id=584327763)]
 
-    if len(records) == 0:
+    if len(appointments) == 0:
         console.print(f"No appointments to schedule for {date} :calendar:")
         sys.exit(0)
 
     try:
         # entries = list(map(VaxAppointment.from_acuity, records))
-        entries = [VaxAppointment(**r) for r in records]
+        vax_appts = [VaxAppointment.from_acuity(appt) for appt in appointments]
     except ValidationError:
         console.print("[red bold]Error with Acuity data export[/red bold]")
         sys.exit(1)
@@ -150,7 +150,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
     with console.status("Initialing web-driver...") as status:
         enroller = AuthorizedEnroller(username, password, dry_run)
 
-        for location, appointments in group_entries(entries=entries):
+        for location, location_appts in groupby_location(vax_appts=vax_appts):
 
             status.update(
                 f"[magenta]Logging into {location.name} for {username}...",
@@ -163,37 +163,44 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                 spinner="bouncingBall",
                 spinner_style="yellow",
             )
-            for entry in appointments:
+            for vax_appt in location_appts:
 
                 def msg(tag: str, color: str, data=None):
-                    line = f"{location.name} {entry.date_str} @ {entry.time_str}"
+                    line = f"{location.name} {vax_appt.id} {vax_appt.time_str}"
                     line = f"[{color} bold]{tag}[/{color} bold]\t- {line}"
                     return line if not data else line + f" - {data}"
 
-                if entry.vax_appointment_id is None:
+                if vax_appt.vax_appointment_id is None:
                     try:
-                        vax_id = enroller.schedule_appointment(entry=entry)
-                        console.log(msg("Success", "green", vax_id))
-                        set_vax_appointment_id(
-                            acuity_id=entry.id, vax_appointment_id=vax_id
+                        vax_id = enroller.schedule_appointment(appt=vax_appt)
+                        console.log(
+                            msg(
+                                "Success",
+                                "green",
+                                vax_id or "DRY_RUN: No appointment scheduled.",
+                            )
                         )
+                        if not dry_run:
+                            set_vax_appointment_id(
+                                acuity_id=vax_appt.id, vax_appointment_id=vax_id
+                            )
                     except HTTPError as e:
                         console.log(
-                            f"[yellow bold]WARNING[/yellow bold] failed tag {entry.id} with Appointment #: {vax_id} on Acuity, but VAX registration was sucessful."
+                            f"[yellow bold]WARNING[/yellow bold] failed tag {vax_appt.id} with Appointment #: {vax_id} on Acuity, but VAX registration was sucessful."
                         )
                     except Exception as e:
                         console.log(msg("Faiure", "red"))
                         console.log(e)
                 else:
-                    console.log(msg("Skipped", "yellow", entry.vax_appointment_id))
+                    console.log(msg("On Vax", "yellow", vax_appt.vax_appointment_id))
 
 
 def unenroll(acuity_id: int):
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
-        appointment = get_appointment(acuity_id=acuity_id)
-    vax_appointment = VaxAppointment.from_acuity(appointment)
+        appt = get_appointment(acuity_id=acuity_id)
+    vax_appt = VaxAppointment.from_acuity(appt)
 
-    if vax_appointment.vax_appointment_id is None:
+    if vax_appt.vax_appointment_id is None:
         console.print("[Yellow bold] Oops. No appointment ID found on acuity.")
         sys.exit(1)
 
@@ -203,8 +210,8 @@ def unenroll(acuity_id: int):
         enroller = AuthorizedEnroller(username, password)
         status.update("Cancelling ")
         try:
-            enroller.cancel_appointment(vax_appointment)
-            delete_vax_appointment_id(acuity_id=vax_appointment.id)
+            enroller.cancel_appointment(appt=vax_appt)
+            delete_vax_appointment_id(acuity_id=vax_appt.id)
             console.log(
                 "[bold green]Success![/bold green] cancelled appointment on VAX and removed confirmation number from Acuity"
             )
@@ -221,17 +228,16 @@ def unenroll(acuity_id: int):
 
 def check_id(acuity_id: int, raw: bool = None):
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
-        appointment = get_appointment(acuity_id=acuity_id)
+        appt = get_appointment(acuity_id=acuity_id)
 
     if raw:
-        console.print(appointment.dict())
-
+        console.print(appt)
     else:
         try:
-            vax_appointment = VaxAppointment.from_acuity(appointment)
+            vax_appointment = VaxAppointment.from_acuity(appt)
             console.print(f"[bold green]Success 🎉")
             console.print(vax_appointment)
         except Exception as e:
             console.print("[yellow red]Failed")
             console.print(e)
-            console.print(appointment.__vaxup__())
+            console.print(appt.__vaxup__())
