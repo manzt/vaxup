@@ -112,8 +112,8 @@ def get_appointments(date: datetime.date) -> List[Appointment]:
     return [Appointment(**d) for d in res.json()]
 
 
-def get_appointment(appt_id: int) -> Appointment:
-    res = requests.get(url=f"{ACUITY_URL}/appointments/{appt_id}", auth=get_auth())
+def get_appointment(acuity_id: int) -> Appointment:
+    res = requests.get(url=f"{ACUITY_URL}/appointments/{acuity_id}", auth=get_auth())
     res.raise_for_status()
     return Appointment(**res.json())
 
@@ -142,16 +142,11 @@ def edit_appointment(
     return Appointment(**res.json())
 
 
-def confirm_appointment(acuity_id: int, vax_appointment_id: str):
+def set_vax_appointment_id(acuity_id: int, vax_appointment_id: str):
     return edit_appointment(
         acuity_id=acuity_id, fields=[("vax_appointment_id", vax_appointment_id)]
     )
 
 
-if __name__ == "__main__":
-    import sys
-
-    from rich import print
-
-    data = get_appointment(sys.argv[1])
-    print(data.__vaxup__())
+def delete_vax_appointment_id(acuity_id: int):
+    return set_vax_appointment_id(acuity_id=acuity_id, vax_appointment_id="")

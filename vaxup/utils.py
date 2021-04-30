@@ -6,14 +6,21 @@ from time import sleep
 from typing import Iterable
 
 from pydantic import ValidationError
+from requests.exceptions import HTTPError
 from rich import box
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from .acuity import confirm_appointment, edit_appointment, get_appointments
-from .data import VaxAppointment, VaxAppointmentError
-from .web import AuthorizedEnroller
+from vaxup.acuity import (
+    delete_vax_appointment_id,
+    edit_appointment,
+    get_appointment,
+    get_appointments,
+    set_vax_appointment_id,
+)
+from vaxup.data import VaxAppointment, VaxAppointmentError
+from vaxup.web import AuthorizedEnroller
 
 console = Console()
 
@@ -107,6 +114,18 @@ def group_entries(entries: Iterable[VaxAppointment]):
     return groupby(sorted_entries, key=lambda e: e.location)
 
 
+def get_login():
+    username = os.environ.get("VAXUP_USERNAME")
+    password = os.environ.get("VAXUP_PASSWORD")
+
+    if not username or not password:
+        console.print("Please enter your login")
+        username = console.input("[blue]Username[/blue]: ")
+        password = console.input("[blue]Password[/blue]: ", password=True)
+
+    return username, password
+
+
 def enroll(date: datetime.date, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
@@ -126,13 +145,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         console.print("[red bold]Error with Acuity data export[/red bold]")
         sys.exit(1)
 
-    username = os.environ.get("VAXUP_USERNAME")
-    password = os.environ.get("VAXUP_PASSWORD")
-
-    if not username or not password:
-        console.print("Please enter your login")
-        username = console.input("[blue]Username[/blue]: ")
-        password = console.input("[blue]Password[/blue]: ", password=True)
+    username, password = get_login()
 
     with console.status("Initialing web-driver...") as status:
         enroller = AuthorizedEnroller(username, password, dry_run)
@@ -151,19 +164,74 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                 spinner_style="yellow",
             )
             for entry in appointments:
+
+                def msg(tag: str, color: str, data=None):
+                    line = f"{location.name} {entry.date_str} @ {entry.time_str}"
+                    line = f"[{color} bold]{tag}[/{color} bold]\t- {line}"
+                    return line if not data else line + f" - {data}"
+
                 if entry.vax_appointment_id is None:
                     try:
                         vax_id = enroller.schedule_appointment(entry=entry)
-                        console.log(
-                            f"[green bold]Success[/green bold] - {location.name} {entry.date_str} @ {entry.time_str} - {vax_id}"
-                        )
-                        confirm_appointment(
+                        console.log(msg("Success", "green", vax_id))
+                        set_vax_appointment_id(
                             acuity_id=entry.id, vax_appointment_id=vax_id
                         )
-                    except Exception as e:
+                    except HTTPError as e:
                         console.log(
-                            f"[red bold]Failure[/red bold] - {location.name} {entry.date_str} @ {entry.time_str}"
+                            f"[yellow bold]WARNING[/yellow bold] failed tag {entry.id} with Appointment #: {vax_id} on Acuity, but VAX registration was sucessful."
                         )
+                    except Exception as e:
+                        console.log(msg("Faiure", "red"))
                         console.log(e)
                 else:
-                    console.print("Skipped")
+                    console.log(msg("Skipped", "yellow", entry.vax_appointment_id))
+
+
+def unenroll(acuity_id: int):
+    with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
+        appointment = get_appointment(acuity_id=acuity_id)
+    vax_appointment = VaxAppointment.from_acuity(appointment)
+
+    if vax_appointment.vax_appointment_id is None:
+        console.print("[Yellow bold] Oops. No appointment ID found on acuity.")
+        sys.exit(1)
+
+    username, password = get_login()
+
+    with console.status("Initialing web-driver...") as status:
+        enroller = AuthorizedEnroller(username, password)
+        status.update("Cancelling ")
+        try:
+            enroller.cancel_appointment(vax_appointment)
+            delete_vax_appointment_id(acuity_id=vax_appointment.id)
+            console.log(
+                "[bold green]Success![/bold green] cancelled appointment on VAX and removed confirmation number from Acuity"
+            )
+        except HTTPError as e:
+            console.log(
+                f"[yellow bold]WARNING[/yellow bold] Cancelled appointment on VAX but failed to update Acuity."
+            )
+        except Exception as e:
+            console.print(
+                "[bold red]Failure[/bold red] unable to cancel appointment on Vax"
+            )
+            console.print(e)
+
+
+def check_id(acuity_id: int, raw: bool = None):
+    with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
+        appointment = get_appointment(acuity_id=acuity_id)
+
+    if raw:
+        console.print(appointment.dict())
+
+    else:
+        try:
+            vax_appointment = VaxAppointment.from_acuity(appointment)
+            console.print(f"[bold green]Success 🎉")
+            console.print(vax_appointment)
+        except Exception as e:
+            console.print("[yellow red]Failed")
+            console.print(e)
+            console.print(appointment.__vaxup__())

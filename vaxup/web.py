@@ -7,10 +7,11 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .data import Ethnicity, Location, Race, Sex, VaxAppointment
+from vaxup.data import Ethnicity, Location, Race, Sex, VaxAppointment
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
+CHANGE_APPOINTMENT_URL = f"{URL}change-existing-appointment"
 TIME_STAMP_XPATH = "//c-vcms-book-appointment/article/div[4]/div[2]"
 
 
@@ -75,7 +76,7 @@ class AuthorizedEnroller:
         # Defaults for driver
         self.driver.set_window_position(0, 0)
         self.driver.set_window_size(1024, 700)
-        self.driver.implicitly_wait(15)
+        self.driver.implicitly_wait(5)
 
     def __enter__(self):
         return self
@@ -196,6 +197,9 @@ class AuthorizedEnroller:
         self._current_location = location
 
     def schedule_appointment(self, entry: VaxAppointment):
+        if entry.vax_appointment_id is not None:
+            raise ValueError("Appointment already registered on VAX.")
+
         # implicit login if current location doesn't match
         if entry.location != self._current_location:
             self.login(location=entry.location)
@@ -220,3 +224,18 @@ class AuthorizedEnroller:
         if not self._test:
             self._click_next()
             return self._get_appt_id()
+
+    def cancel_appointment(self, entry: VaxAppointment):
+        if entry.vax_appointment_id is None:
+            raise ValueError("No VAX Appointment Number.")
+
+        if entry.location != self._current_location:
+            self.login(location=entry.location)
+
+        self.driver.get(CHANGE_APPOINTMENT_URL)
+        self._find_element(
+            "//lightning-input[@data-id='appointmentIdField']"
+        ).send_keys(entry.vax_appointment_id)
+        self._find_element("//lightning-button/button[text() = 'Search']").click()
+        self._find_element("//button[@name='cancel' and @data-index='0']").click()
+        self._find_element("//button[text() = 'Yes']").click()
