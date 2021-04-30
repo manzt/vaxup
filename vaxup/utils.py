@@ -128,19 +128,20 @@ def groupby_location(vax_appts: Iterable[VaxAppointment]):
 
 
 def enroll(date: datetime.date, dry_run: bool = False) -> None:
-    from .data import DUMMY_DATA
 
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
-        appointments = get_appointments(date)
+        appts = get_appointments(date)
         # appointments = [get_appointment(acuity_id=584352167)]
 
-    if len(appointments) == 0:
+    if len(appts) == 0:
         console.print(f"No appointments to schedule for {date} :calendar:")
         sys.exit(0)
 
     try:
         # entries = list(map(VaxAppointment.from_acuity, records))
-        vax_appts = [VaxAppointment.from_acuity(appt) for appt in appointments]
+        vax_appts = [VaxAppointment.from_acuity(appt) for appt in appts]
+        # from .data import DUMMY_DATA
+        # vax_appts = [VaxAppointment(**DUMMY_DATA[0])]
     except ValidationError:
         console.print("[red bold]Error with Acuity data export[/red bold]")
         sys.exit(1)
@@ -171,7 +172,6 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
 
                 if vax_appt.vax_appointment_id is None:
                     try:
-                        console.print(vax_appt)
                         vax_id = enroller.schedule_appointment(appt=vax_appt)
                         console.log(
                             msg(
@@ -191,6 +191,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                     except Exception as e:
                         console.log(msg("Failure", "red"))
                         console.log(e)
+                        console.print(vax_appt)
                 else:
                     console.log(
                         msg(

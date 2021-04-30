@@ -180,7 +180,7 @@ class VaxAppointmentError:
 
 DUMMY_DATA = [
     {
-        "id": 581093290,
+        "id": 10000,
         "first_name": "Trevor",
         "last_name": "Manz",
         "datetime": "2021-05-01T17:30",
@@ -198,5 +198,6 @@ DUMMY_DATA = [
         "sex": Sex.MALE.value,
         "has_health_insurance": "yes",
         "vax_appointment_id": "",
+        "canceled": False,
     },
 ]
