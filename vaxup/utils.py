@@ -1,9 +1,7 @@
 import datetime
 import os
-from re import A
 import sys
 from itertools import groupby
-from time import sleep
 from typing import Iterable
 
 from pydantic import ValidationError
@@ -130,9 +128,8 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
-        # records = get_appointments(date)
-        sleep(1)
-        appointments = [get_appointment(acuity_id=584327763)]
+        appointments = get_appointments(date)
+        # appointments = [get_appointment(acuity_id=584352167)]
 
     if len(appointments) == 0:
         console.print(f"No appointments to schedule for {date} :calendar:")
@@ -151,7 +148,6 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         enroller = AuthorizedEnroller(username, password, dry_run)
 
         for location, location_appts in groupby_location(vax_appts=vax_appts):
-
             status.update(
                 f"[magenta]Logging into {location.name} for {username}...",
                 spinner="earth",
@@ -172,12 +168,13 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
 
                 if vax_appt.vax_appointment_id is None:
                     try:
+                        console.print(vax_appt)
                         vax_id = enroller.schedule_appointment(appt=vax_appt)
                         console.log(
                             msg(
                                 "Success",
                                 "green",
-                                vax_id or "DRY_RUN: No appointment scheduled.",
+                                vax_id or "DRY_RUN - No VAX Confirmation.",
                             )
                         )
                         if not dry_run:
@@ -189,7 +186,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                             f"[yellow bold]WARNING[/yellow bold] failed tag {vax_appt.id} with Appointment #: {vax_id} on Acuity, but VAX registration was sucessful."
                         )
                     except Exception as e:
-                        console.log(msg("Faiure", "red"))
+                        console.log(msg("Failure", "red"))
                         console.log(e)
                 else:
                     console.log(msg("On Vax", "yellow", vax_appt.vax_appointment_id))

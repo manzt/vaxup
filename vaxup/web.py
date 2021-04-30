@@ -1,4 +1,5 @@
 from typing import Optional
+from time import sleep
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -95,6 +96,7 @@ class AuthorizedEnroller:
         # Checks if date in middle of page matches our desired date.
         # If not, we need to input a new timestamp and wait until the server
         # responds with new options.
+
         def date_matches(driver):
             el = driver.find_element(By.XPATH, TIME_STAMP_XPATH)
             return el.text == date
@@ -105,6 +107,7 @@ class AuthorizedEnroller:
             date_picker.send_keys(date)
             date_picker.send_keys(Keys.RETURN)
             WebDriverWait(self.driver, 10).until(date_matches)
+            sleep(1)
 
         # Find time slot and click
         # Time must be formatted: HH:MM AM/PM
@@ -205,7 +208,6 @@ class AuthorizedEnroller:
             self.login(location=appt.location)
         else:
             self.driver.get(URL)
-
         self._select_date(date=appt.date_str, time=appt.time_str)
         self._click_next(first=True)
 
