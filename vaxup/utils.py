@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from .acuity import get_appointments
+from .acuity import edit_appointment, get_appointments
 from .data import VaxAppointment, VaxAppointmentError
 from .web import AuthorizedEnroller
 
@@ -33,6 +33,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
         box=box.SIMPLE_HEAD,
     )
     table.add_column("appt. id", style="magenta")
+    table.add_column("location")
     table.add_column("time", justify="center")
     table.add_column("field", justify="right", style="yellow")
     table.add_column("value", style="bold yellow")
@@ -42,12 +43,23 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
         try:
             entry = VaxAppointment.from_acuity(apt)
             if show_all:
-                table.add_row(str(entry.id), entry.time_str, "", "", style="green")
+                table.add_row(
+                    str(entry.id),
+                    entry.location.name,
+                    entry.time_str,
+                    "",
+                    "",
+                    style="green",
+                )
         except ValidationError as e:
             err = VaxAppointmentError.from_err(e, apt)
             errors.append(err)
             table.add_row(
-                str(err.id), err.time, "\n".join(err.names), "\n".join(err.values)
+                str(err.id),
+                err.location.name,
+                err.time,
+                "\n".join(err.names),
+                "\n".join(err.values),
             )
 
     # no errors
@@ -85,8 +97,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
             if len(updates) > 0 and Confirm.ask(text, console=console):
                 updates = [(n, u) for n, _, u in updates]
                 # TODO
-                # res = edit_appointment(err.id, updates)
-                # console.print(res)
+                edit_appointment(err.id, updates)
             console.print()
 
 

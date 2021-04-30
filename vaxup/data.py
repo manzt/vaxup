@@ -134,6 +134,7 @@ class VaxAppointment:
 @dataclass
 class VaxAppointmentError:
     id: PositiveInt
+    location: Location
     datetime: datetime
     fields: List[Tuple[str, str]]
 
@@ -160,7 +161,9 @@ class VaxAppointmentError:
         for err in e.errors():
             name = err["loc"][0]
             fields.append((name, d[name]))
-        return cls(id=apt.id, datetime=apt.datetime, fields=fields)
+        return cls(
+            id=apt.id, location=d["location"], datetime=apt.datetime, fields=fields
+        )
 
 
 DUMMY_DATA = [
@@ -168,7 +171,7 @@ DUMMY_DATA = [
         "id": 100000,
         "first_name": "Trevor",
         "last_name": "Manz",
-        "datetime": "2021-04-28T21:30",
+        "datetime": "2021-05-01T17:30",
         "phone": "7158289308",
         "email": "trevmanz94@gmail.com",
         "location": Location.EAST_NY.value,
