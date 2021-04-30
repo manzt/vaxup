@@ -23,7 +23,7 @@ setuptools.setup(
         "selenium>=3.141.0",
         "rich>=9.13.0",
         "pydantic>=1.8.1",
-        "email-validator>=1.1.2",
+        "requests>=2.25.1",
     ],
     entry_points={
         "console_scripts": ["vaxup=vaxup.cli:main"],

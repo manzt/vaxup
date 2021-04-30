@@ -10,9 +10,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from vaxup.data import Ethnicity, Location, Race, Sex, VaxAppointment
 
-URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
-LOGIN_URL = f"{URL}login/"
-CHANGE_APPOINTMENT_URL = f"{URL}change-existing-appointment"
+URL = "https://vaxmgmt.force.com/authorizedEnroller/s"
+LOGIN_URL = f"{URL}/login"
+CHANGE_APPOINTMENT_URL = f"{URL}/change-existing-appointment"
 TIME_STAMP_XPATH = "//c-vcms-book-appointment/article/div[4]/div[2]"
 
 
