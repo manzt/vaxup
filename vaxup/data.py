@@ -176,28 +176,3 @@ class VaxAppointmentError:
             datetime=apt.datetime,
             fields=fields,
         )
-
-
-DUMMY_DATA = [
-    {
-        "id": 10000,
-        "first_name": "Trevor",
-        "last_name": "Manz",
-        "datetime": "2021-05-01T17:30",
-        "phone": "7158289308",
-        "email": "trevmanz94@gmail.com",
-        "location": Location.WASHINGTON_HEIGHTS.value,
-        "dob": "07/07/1994",
-        "street_address": "500 WN street",
-        "city": "New York",
-        "state": "NY",
-        "apt": None,
-        "zip_code": "10001",
-        "race": Race.WHITE.value,
-        "ethnicity": Ethnicity.NOT_LATINX.value,
-        "sex": Sex.MALE.value,
-        "has_health_insurance": "yes",
-        "vax_appointment_id": "",
-        "canceled": False,
-    },
-]

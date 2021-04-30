@@ -131,17 +131,13 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
 
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
         appts = get_appointments(date)
-        # appointments = [get_appointment(acuity_id=584352167)]
 
     if len(appts) == 0:
         console.print(f"No appointments to schedule for {date} :calendar:")
         sys.exit(0)
 
     try:
-        # entries = list(map(VaxAppointment.from_acuity, records))
         vax_appts = [VaxAppointment.from_acuity(appt) for appt in appts]
-        # from .data import DUMMY_DATA
-        # vax_appts = [VaxAppointment(**DUMMY_DATA[0])]
     except ValidationError:
         console.print("[red bold]Error with Acuity data export[/red bold]")
         sys.exit(1)
