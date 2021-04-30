@@ -145,6 +145,7 @@ class VaxAppointmentError:
     location: Location
     datetime: datetime
     fields: List[Tuple[str, str]]
+    vax_appointment_id = None
 
     @property
     def date(self):
@@ -170,7 +171,10 @@ class VaxAppointmentError:
             name = err["loc"][0]
             fields.append((name, d[name]))
         return cls(
-            id=apt.id, location=d["location"], datetime=apt.datetime, fields=fields
+            id=apt.id,
+            location=d["location"],
+            datetime=apt.datetime,
+            fields=fields,
         )
 
 

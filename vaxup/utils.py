@@ -56,6 +56,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     table.add_column("time", justify="center")
     table.add_column("field", justify="right", style="yellow")
     table.add_column("value", style="bold yellow")
+    table.add_column("vax id", style="green")
 
     errors = []
     for appt in appointments:
@@ -68,6 +69,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
                     vax_appt.time_str,
                     "",
                     "",
+                    vax_appt.vax_appointment_id,
                     style="green",
                 )
         except ValidationError as e:
@@ -79,6 +81,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
                 err.time,
                 "\n".join(err.names),
                 "\n".join(err.values),
+                err.vax_appointment_id,
             )
 
     # no errors

@@ -106,8 +106,9 @@ class AuthorizedEnroller:
             date_picker.clear()
             date_picker.send_keys(date)
             date_picker.send_keys(Keys.RETURN)
+
             WebDriverWait(self.driver, 10).until(date_matches)
-            sleep(1)
+            sleep(0.5)
 
         # Find time slot and click
         # Time must be formatted: HH:MM AM/PM
