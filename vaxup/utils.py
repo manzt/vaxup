@@ -192,7 +192,13 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                         console.log(msg("Failure", "red"))
                         console.log(e)
                 else:
-                    console.log(msg("On Vax", "yellow", vax_appt.vax_appointment_id))
+                    console.log(
+                        msg(
+                            "Skipped (already registered)",
+                            "yellow",
+                            "Appt #: " + vax_appt.vax_appointment_id,
+                        )
+                    )
 
 
 def unenroll(acuity_id: int):
@@ -231,7 +237,8 @@ def check_id(acuity_id: int, raw: bool = None):
         appt = get_appointment(acuity_id=acuity_id)
 
     if raw:
-        console.print(appt)
+        console.print(appt.dict())
+        console.print(appt.__vaxup__())
     else:
         try:
             vax_appointment = VaxAppointment.from_acuity(appt)
