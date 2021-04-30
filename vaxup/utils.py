@@ -152,7 +152,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                 f"[magenta]Logging into {location.name} for {username}...",
                 spinner="earth",
             )
-            enroller.login(location=location)
+            # enroller.login(location=location)
 
             status.update(
                 status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
