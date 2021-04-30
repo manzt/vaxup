@@ -24,6 +24,18 @@ from vaxup.web import AuthorizedEnroller
 console = Console()
 
 
+def get_vax_login():
+    username = os.environ.get("VAXUP_USERNAME")
+    password = os.environ.get("VAXUP_PASSWORD")
+
+    if not username or not password:
+        console.print("Please enter your login")
+        username = console.input("[blue]Username[/blue]: ")
+        password = console.input("[blue]Password[/blue]: ", password=True)
+
+    return username, password
+
+
 def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> None:
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
         appointments = get_appointments(date)
@@ -112,18 +124,6 @@ def groupby_location(vax_appts: Iterable[VaxAppointment]):
     return groupby(sorted_appts, key=lambda e: e.location)
 
 
-def get_login():
-    username = os.environ.get("VAXUP_USERNAME")
-    password = os.environ.get("VAXUP_PASSWORD")
-
-    if not username or not password:
-        console.print("Please enter your login")
-        username = console.input("[blue]Username[/blue]: ")
-        password = console.input("[blue]Password[/blue]: ", password=True)
-
-    return username, password
-
-
 def enroll(date: datetime.date, dry_run: bool = False) -> None:
     from .data import DUMMY_DATA
 
@@ -142,7 +142,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         console.print("[red bold]Error with Acuity data export[/red bold]")
         sys.exit(1)
 
-    username, password = get_login()
+    username, password = get_vax_login()
 
     with console.status("Initialing web-driver...") as status:
         enroller = AuthorizedEnroller(username, password, dry_run)
@@ -201,7 +201,7 @@ def unenroll(acuity_id: int):
         console.print("[Yellow bold] Oops. No appointment ID found on acuity.")
         sys.exit(1)
 
-    username, password = get_login()
+    username, password = get_vax_login()
 
     with console.status("Initialing web-driver...") as status:
         enroller = AuthorizedEnroller(username, password)
