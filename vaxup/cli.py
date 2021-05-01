@@ -2,10 +2,10 @@ import argparse
 import datetime
 import sys
 
-from vaxup.utils import check as check_appointments
-from vaxup.utils import enroll as enroll_appointments
-from vaxup.utils import unenroll as unenroll_appointment
-from vaxup.utils import check_id as check_appointment_id
+from .utils import check as check_appointments
+from .utils import check_id as check_appointment_id
+from .utils import enroll as enroll_appointments
+from .utils import unenroll as unenroll_appointment
 
 
 def check(args: argparse.Namespace) -> None:

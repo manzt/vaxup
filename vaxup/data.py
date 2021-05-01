@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Tuple
 from pydantic import ValidationError, validator
 from pydantic.types import PositiveInt
 
-from vaxup.acuity import Appointment
+from .acuity import Appointment
 
 # Improve intellisense for VSCode
 # https://github.com/microsoft/python-language-server/issues/1898

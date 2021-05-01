@@ -11,15 +11,15 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from vaxup.acuity import (
+from .acuity import (
     delete_vax_appointment_id,
     edit_appointment,
     get_appointment,
     get_appointments,
     set_vax_appointment_id,
 )
-from vaxup.data import VaxAppointment, VaxAppointmentError
-from vaxup.web import AuthorizedEnroller
+from .data import VaxAppointment, VaxAppointmentError
+from .web import AuthorizedEnroller
 
 console = Console()
 
@@ -185,7 +185,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                 else:
                     console.log(
                         msg(
-                            "Skipped (already registered)",
+                            "Skipped",
                             "yellow",
                             "Appt #: " + vax_appt.vax_appointment_id,
                         )

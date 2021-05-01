@@ -1,5 +1,5 @@
-from typing import Optional
 from time import sleep
+from typing import Optional
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -8,7 +8,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from vaxup.data import Ethnicity, Location, Race, Sex, VaxAppointment
+from .data import Ethnicity, Location, Race, Sex, VaxAppointment
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
