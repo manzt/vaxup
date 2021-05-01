@@ -149,12 +149,6 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
 
         for location, location_appts in groupby_location(vax_appts=vax_appts):
             status.update(
-                f"[magenta]Logging into {location.name} for {username}...",
-                spinner="earth",
-            )
-            # enroller.login(location=location)
-
-            status.update(
                 status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
                 spinner="bouncingBall",
                 spinner_style="yellow",

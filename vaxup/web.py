@@ -184,7 +184,7 @@ class AuthorizedEnroller:
         return el.text.lstrip("Appointment #:")
 
     # Explicit login to location
-    def login(self, location: Location):
+    def _login(self, location: Location):
         self.driver.get(LOGIN_URL)
         self._find_element("//input[@id='emailAddress-0']").send_keys(self._username)
         self._find_element("//input[@id='loginPassword-0']").send_keys(self._password)
@@ -206,7 +206,7 @@ class AuthorizedEnroller:
 
         # implicit login if current location doesn't match
         if appt.location != self._current_location:
-            self.login(location=appt.location)
+            self._login(location=appt.location)
         else:
             self.driver.get(URL)
         self._select_date(date=appt.date_str, time=appt.time_str)
@@ -233,7 +233,7 @@ class AuthorizedEnroller:
             raise ValueError("No VAX Appointment Number.")
 
         if appt.location != self._current_location:
-            self.login(location=appt.location)
+            self._login(location=appt.location)
 
         self.driver.get(CHANGE_APPOINTMENT_URL)
         self._find_element(
