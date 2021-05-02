@@ -1,7 +1,8 @@
 import datetime
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
 
 import requests
 from pydantic import BaseModel, validator
@@ -29,110 +30,116 @@ FIELD_IDS = {
     9519174: "ethnicity",
     9519161: "sex",
     9519166: "has_health_insurance",
-    # Unused fields, we keep these for reference
-    9517774: "_elgibility",
-    9517872: "_certification",
-    9517897: "_allergic_reaction",
-    9519120: "_age",
-    9605979: "_link",
-    9605968: "_link",
     # VAX CONFIRMATION
     9715272: "vax_appointment_id",
 }
 
 
-class FormValue(BaseModel):
-    id: PositiveInt
-    fieldID: PositiveInt
-    value: str
-    name: str
-
-    @validator("fieldID")
-    def known_field(cls, v: int):
-        assert v in FIELD_IDS, "Field not found in mapping"
-        return v
-
-    @property
-    def field(self):
-        return FIELD_IDS[self.fieldID]
-
-    @property
-    def keep(self):
-        # Ignore fields that are prefixed with "_"; we don't use them in vaxup
-        return not self.field.startswith("_")
+class Location(Enum):
+    EAST_NY = "CHN Vaccination Site: Church of God (East NY)"
+    HARLEM = "CHN Vaccination Site: Convent Baptist (Harlem)"
+    WASHINGTON_HEIGHTS = "CHN Vaccination Site: Fort Washington (Washington Heights)"
+    SOUTH_JAMAICA = "CHN Vaccination Site: New Jerusalem (South Jamaica)"
 
 
-class Form(BaseModel):
-    id: PositiveInt
-    name: str
-    values: List[FormValue]
+class Race(Enum):
+    ASIAN = "Asian (including South Asian)"
+    BLACK = "Black including African American or Afro-Caribbean"
+    NATIVE_AMERICAN = "Native American or Alaska Native"
+    WHITE = "White"
+    PACIFIC_ISLANDER = "Native Hawaiian or Pacific Islander"
+    OTHER = "Other"
+    PREFER_NOT_TO_ANSWER = "Prefer not to answer"
 
-    @validator("id")
-    def known_form(cls, v: int):
-        assert v in ACUITY_FORM_IDS, "Acuity form not found"
-        return v
+
+class Sex(Enum):
+    MALE = "Male"
+    FEMALE = "Female"
+    NEITHER = "Neither"
+    UNKNOWN = "Unknown"
 
 
-class Appointment(BaseModel):
+class Ethnicity(Enum):
+    LATINX = "Yes"
+    NOT_LATINX = "No"
+    PERFER_NOT_TO_ANSWER = "Prefer not to answer"
+
+
+class AcuityAppointment(BaseModel):
     id: PositiveInt
     first_name: str = Field(alias="firstName")
     last_name: str = Field(alias="lastName")
     phone: str
     email: str
-    datetime: str = Field(alias="datetime")
-    location: str = Field(alias="calendar")
+    datetime: datetime.datetime
+    location: Location = Field(alias="calendar")
     canceled: bool
-    forms: List[Form]
+    # forms
+    dob: str
+    street_address: str
+    city: str
+    state: str
+    apt: Optional[str]
+    zip_code: str
+    race: Race
+    ethnicity: Ethnicity
+    sex: Sex
+    has_health_insurance: str
+    # Custom form
+    vax_appointment_id: Optional[str]
 
-    def __vaxup__(self) -> Dict[str, Any]:
-        base = self.dict(exclude={"forms"})
-        return base | {
-            fv.field: fv.value for form in self.forms for fv in form.values if fv.keep
+    @validator("datetime")
+    def strip_tzinfo(cls, dt):
+        return dt.replace(tzinfo=None)
+
+    @validator("vax_appointment_id", "apt")
+    def empty_as_none(cls, v):
+        return None if v == "" else v
+
+    @classmethod
+    def from_api(cls, apt):
+        apt |= {
+            FIELD_IDS[v["fieldID"]]: v["value"]
+            for form in apt["forms"]
+            for v in form["values"]
+            if v["fieldID"] in FIELD_IDS
         }
-
-    @property
-    def on_vax(self):
-        return self.__vaxup__()["vax_appointment_id"] != ""
+        return cls(**apt)
 
 
 def get_auth() -> Tuple[str, str]:
     return os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]
 
 
-def get_appointments(date: datetime.date, canceled: bool = False) -> List[Appointment]:
+def get_appointments(
+    date: datetime.date, canceled: bool = False, max_per_response: int = 5000
+) -> List[AcuityAppointment]:
     res = requests.get(
         url=f"{ACUITY_URL}/appointments",
         auth=get_auth(),
         params={
-            "max": MAX_PER_RESPONSE,
+            "max": max_per_response,
             "minDate": f"{date}T00:00",
             "maxDate": f"{date}T23:59",
             "canceled": "true" if canceled else "false",
         },
     )
     res.raise_for_status()
-    return [Appointment(**d) for d in res.json()]
-
-
-def get_appointment(acuity_id: int) -> Appointment:
-    res = requests.get(url=f"{ACUITY_URL}/appointments/{acuity_id}", auth=get_auth())
-    res.raise_for_status()
-    return Appointment(**res.json())
+    return [AcuityAppointment.from_api(a) for a in res.json()]
 
 
 def edit_appointment(
     acuity_id: int,
-    fields: Optional[List[Tuple[str, str]]] = None,
+    fields: Optional[Dict[str, str]] = None,
     notes: Optional[str] = None,
-) -> Appointment:
+) -> AcuityAppointment:
     data = {}
     if fields:
         id_map = {v: k for k, v in FIELD_IDS.items()}
-        fields = [{"id": id_map[k], "value": v} for k, v in fields]
+        fields = [{"id": id_map[k], "value": v} for k, v in fields.items()]
         data |= {"fields": fields}
     if isinstance(notes, str):
         data |= {"notes": notes}
-
     res = requests.put(
         url=f"{ACUITY_URL}/appointments/{acuity_id}",
         auth=get_auth(),
@@ -141,14 +148,22 @@ def edit_appointment(
     )
 
     res.raise_for_status()
-    return Appointment(**res.json())
+    return AcuityAppointment.from_api(res.json())
 
 
-def set_vax_appointment_id(acuity_id: int, vax_appointment_id: str):
+def get_appointment(acuity_id: int) -> AcuityAppointment:
+    res = requests.get(url=f"{ACUITY_URL}/appointments/{acuity_id}", auth=get_auth())
+    res.raise_for_status()
+    return AcuityAppointment.from_api(res.json())
+
+
+def set_vax_appointment_id(
+    acuity_id: int, vax_appointment_id: str
+) -> AcuityAppointment:
     return edit_appointment(
-        acuity_id=acuity_id, fields=[("vax_appointment_id", vax_appointment_id)]
+        acuity_id=acuity_id, fields={"vax_appointment_id": vax_appointment_id}
     )
 
 
-def delete_vax_appointment_id(acuity_id: int):
+def delete_vax_appointment_id(acuity_id: int) -> AcuityAppointment:
     return set_vax_appointment_id(acuity_id=acuity_id, vax_appointment_id="")
