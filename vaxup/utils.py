@@ -2,7 +2,7 @@ import datetime
 import os
 import sys
 from itertools import groupby
-from typing import Iterable
+from typing import Iterable, Union
 
 from pydantic import ValidationError
 from requests.exceptions import HTTPError
@@ -36,66 +36,74 @@ def get_vax_login():
     return username, password
 
 
+def create_row(record: Union[VaxAppointment, ValidationError]):
+    if isinstance(record, VaxAppointmentError):
+        names = "\n".join(record.names)
+        values = "\n".join(record.values)
+    else:
+        names, values = "", ""
+
+    cancel_msg = "CANCELED" if record.canceled else ""
+    vax_id = record.vax_appointment_id or "[magenta]-------"
+
+    if record.vax_appointment_id is not None and record.canceled:
+        cancel_msg = "[yellow bold]" + cancel_msg
+        vax_id = "[yellow bold]" + vax_id
+
+    return (
+        str(record.id),
+        record.location.name,
+        record.time_str,
+        names,
+        values,
+        vax_id,
+        cancel_msg,
+    )
+
+
 def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> None:
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
-        appointments = get_appointments(date)
-    num_appointments = len(appointments)
+        appts = get_appointments(date)
+        if show_all:
+            appts += get_appointments(date, canceled=True)
+
+    num_appts = len(appts)
 
     # no appointments
-    if num_appointments == 0:
+    if num_appts == 0:
         console.print(f"No appointments scheduled for {date} :calendar:")
         sys.exit(0)
 
-    table = Table(
-        show_header=True,
-        row_styles=None if show_all else ["none", "dim"],
-        box=box.SIMPLE_HEAD,
-    )
+    table = Table(show_header=True, box=box.SIMPLE_HEAD)
     table.add_column("appt. id", style="magenta")
     table.add_column("location")
     table.add_column("time", justify="center")
     table.add_column("field", justify="right", style="yellow")
     table.add_column("value", style="bold yellow")
     table.add_column("vax id", style="green")
+    table.add_column("canceled", justify="center")
 
     errors = []
-    for appt in appointments:
+    for appt in appts:
         try:
             vax_appt = VaxAppointment.from_acuity(appt)
             if show_all:
-                table.add_row(
-                    str(vax_appt.id),
-                    vax_appt.location.name,
-                    vax_appt.time_str,
-                    "",
-                    "",
-                    vax_appt.vax_appointment_id or "[magenta]-------",
-                    style="green",
-                )
+                table.add_row(*create_row(vax_appt), style="green")
         except ValidationError as e:
             err = VaxAppointmentError.from_err(e, appt)
             errors.append(err)
-            table.add_row(
-                str(err.id),
-                err.location.name,
-                err.time,
-                "\n".join(err.names),
-                "\n".join(err.values),
-                err.vax_appointment_id or "[magenta]-------",
-            )
+            table.add_row(*create_row(err))
 
     # no errors
     if len(errors) == 0:
-        console.print(
-            f"[bold green]All {num_appointments} appointments passed[/bold green] 🎉"
-        )
+        console.print(f"[bold green]All {num_appts} appointments passed[/bold green] 🎉")
         if show_all:
             console.print(table)
         sys.exit(0)
 
     # handle errors
     console.print(
-        f"[bold yellow]Oops! {len(errors)} of {num_appointments} appointments need fixing 🛠️"
+        f"[bold yellow]Oops! {len(errors)} of {num_appts} appointments need fixing 🛠️"
     )
     console.print(table)
     if not fix:

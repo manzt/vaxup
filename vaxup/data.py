@@ -146,13 +146,14 @@ class VaxAppointmentError:
     datetime: datetime
     fields: List[Tuple[str, str]]
     vax_appointment_id = None
+    canceled: bool
 
     @property
-    def date(self):
+    def date_str(self):
         return self.datetime.strftime("%d/%m/%Y")
 
     @property
-    def time(self):
+    def time_str(self):
         return self.datetime.strftime("%I:%M %p")
 
     @property
@@ -174,5 +175,6 @@ class VaxAppointmentError:
             id=apt.id,
             location=d["location"],
             datetime=apt.datetime,
+            canceled=d["canceled"],
             fields=fields,
         )
