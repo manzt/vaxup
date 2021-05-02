@@ -9,14 +9,7 @@ from pydantic import BaseModel, validator
 from pydantic.fields import Field
 from pydantic.types import PositiveInt
 
-# Acuity API URL
 ACUITY_URL = "https://acuityscheduling.com/api/v1"
-# Acuity ID for intake form titled "CHN Vaccine Scheduling Intake Form" & "VAX Confirmation"
-MAX_PER_RESPONSE = 5000
-# Maps Acuity intake form field 'id' -> 'name'
-
-ACUITY_FORM_IDS = (1717791, 1751359)
-# Acuity appointments/ endpoint is limited to 100 by default.
 
 FIELD_IDS = {
     # SCHEDULING FORM
