@@ -201,6 +201,9 @@ class AuthorizedEnroller:
         self._current_location = location
 
     def schedule_appointment(self, appt: VaxAppointment):
+        if appt.canceled:
+            raise ValueError("Appointment is canceled on Acuity.")
+
         if appt.vax_appointment_id is not None:
             raise ValueError("Appointment already registered on VAX.")
 

@@ -76,7 +76,7 @@ class VaxAppointment:
     sex: Sex
     has_health_insurance: bool
     vax_appointment_id: Optional[str]
-    canceled: Literal[False]
+    canceled: bool
 
     @property
     def date_str(self):

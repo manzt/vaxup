@@ -160,7 +160,19 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                     line = f"[{color} bold]{tag}[/{color} bold]\t- {line}"
                     return line if not data else line + f" - {data}"
 
-                if vax_appt.vax_appointment_id is None:
+                if vax_appt.canceled:
+                    console.log(
+                        msg("Skipped", "yellow", "Appointment is canceled on Acuity.")
+                    )
+                elif vax_appt.vax_appointment_id is not None:
+                    console.log(
+                        msg(
+                            "Skipped",
+                            "yellow",
+                            "Appt #: " + vax_appt.vax_appointment_id,
+                        )
+                    )
+                else:
                     try:
                         vax_id = enroller.schedule_appointment(appt=vax_appt)
                         console.log(
@@ -182,14 +194,6 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                         console.log(msg("Failure", "red"))
                         console.log(e)
                         console.print(vax_appt)
-                else:
-                    console.log(
-                        msg(
-                            "Skipped",
-                            "yellow",
-                            "Appt #: " + vax_appt.vax_appointment_id,
-                        )
-                    )
 
 
 def unenroll(acuity_id: int):
