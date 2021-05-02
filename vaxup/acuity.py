@@ -99,7 +99,7 @@ def get_auth() -> Tuple[str, str]:
     return os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]
 
 
-def get_appointments(date: datetime.date) -> List[Appointment]:
+def get_appointments(date: datetime.date, canceled: bool = False) -> List[Appointment]:
     res = requests.get(
         url=f"{ACUITY_URL}/appointments",
         auth=get_auth(),
@@ -107,6 +107,7 @@ def get_appointments(date: datetime.date) -> List[Appointment]:
             "max": MAX_PER_RESPONSE,
             "minDate": f"{date}T00:00",
             "maxDate": f"{date}T23:59",
+            "canceled": "true" if canceled else "false",
         },
     )
     res.raise_for_status()
