@@ -1,8 +1,9 @@
 import datetime
+from dataclasses import dataclass
 import os
 import sys
 from itertools import groupby
-from typing import Iterable, Union
+from typing import Iterable, List, Optional, Tuple
 
 from pydantic import ValidationError
 from requests.exceptions import HTTPError
@@ -12,13 +13,14 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from .acuity import (
+    AcuityAppointment,
     delete_vax_appointment_id,
     edit_appointment,
     get_appointment,
     get_appointments,
     set_vax_appointment_id,
 )
-from .data import VaxAppointment, VaxAppointmentError
+from .data import VaxAppointment
 from .web import AuthorizedEnroller
 
 console = Console()
@@ -36,29 +38,39 @@ def get_vax_login():
     return username, password
 
 
-def create_row(record: Union[VaxAppointment, ValidationError]):
-    if isinstance(record, VaxAppointmentError):
-        names = "\n".join(record.names)
-        values = "\n".join(record.values)
+def create_row(appt: AcuityAppointment, issue_fields: Optional[List[str]] = None):
+    if issue_fields:
+        names = "\n".join(issue_fields)
+        values = "\n".join([getattr(appt, n) for n in issue_fields])
     else:
         names, values = "", ""
 
-    cancel_msg = "CANCELED" if record.canceled else ""
-    vax_id = record.vax_appointment_id or "[magenta]-------"
+    cancel_msg = "CANCELED" if appt.canceled else ""
+    vax_id = appt.vax_appointment_id or "[dim]-------"
 
-    if record.vax_appointment_id is not None and record.canceled:
+    if appt.vax_appointment_id is not None and appt.canceled:
         cancel_msg = "[yellow bold]" + cancel_msg
         vax_id = "[yellow bold]" + vax_id
 
     return (
-        str(record.id),
-        record.location.name,
-        record.time_str,
+        str(appt.id),
+        appt.location.name,
+        appt.datetime.strftime("%I:%M %p"),
         names,
         values,
         vax_id,
         cancel_msg,
     )
+
+
+@dataclass
+class FieldUpdate:
+    name: str
+    old: str
+    new: str
+
+    def __rich_repr__(self):
+        return f"{self.name}: [yellow]{self.old}[/yellow] -> [bold green]{self.new}[/bold green]"
 
 
 def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> None:
@@ -80,22 +92,23 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     table.add_column("time", justify="center")
     table.add_column("field", justify="right", style="yellow")
     table.add_column("value", style="bold yellow")
-    table.add_column("vax id", style="green")
+    table.add_column("vax id", style="green", justify="center")
     table.add_column("canceled", justify="center")
 
-    errors = []
+    issues: List[Tuple[AcuityAppointment, List[str]]] = []
+
     for appt in appts:
         try:
-            vax_appt = VaxAppointment.from_acuity(appt)
+            VaxAppointment.from_acuity(appt)
             if show_all:
-                table.add_row(*create_row(vax_appt), style="green")
+                table.add_row(*create_row(appt=appt), style="green")
         except ValidationError as e:
-            err = VaxAppointmentError.from_err(e, appt)
-            errors.append(err)
-            table.add_row(*create_row(err))
+            issue_fields = [err["loc"][0] for err in e.errors()]
+            issues.append((appt, issue_fields))
+            table.add_row(*create_row(appt=appt, issue_fields=issue_fields))
 
     # no errors
-    if len(errors) == 0:
+    if len(issues) == 0:
         console.print(f"[bold green]All {num_appts} appointments passed[/bold green] 🎉")
         if show_all:
             console.print(table)
@@ -103,7 +116,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
 
     # handle errors
     console.print(
-        f"[bold yellow]Oops! {len(errors)} of {num_appts} appointments need fixing 🛠️"
+        f"[bold yellow]Oops! {len(issues)} of {num_appts} appointments need fixing 🛠️"
     )
     console.print(table)
     if not fix:
@@ -111,22 +124,16 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
             f"Run [yellow]vaxup check {date} --fix[/yellow] to fix interactively."
         )
     else:
-        for err in errors:
-            updates = []
-            for name, value in err.fields:
-                update = Prompt.ask(name, default=value, console=console)
+        for appt, fields in issues:
+            updates: List[FieldUpdate] = []
+            for field in fields:
+                value = getattr(appt, field)
+                update = Prompt.ask(field, default=value, console=console)
                 if update != value:
-                    updates.append((name, value, update))
-
-            text = "\n".join(
-                [
-                    f"{n}: [yellow]{v}[/yellow] -> [bold green]{u}[/bold green]"
-                    for n, v, u in updates
-                ]
-            )
+                    updates.append(FieldUpdate(field, value, update))
+            text = "\n".join(map(lambda f: f.__rich_repr__(), updates))
             if len(updates) > 0 and Confirm.ask(text, console=console):
-                updates = [(n, u) for n, _, u in updates]
-                edit_appointment(err.id, updates)
+                edit_appointment(appt.id, fields={f.name: f.new for f in updates})
             console.print()
 
 
@@ -250,4 +257,4 @@ def check_id(acuity_id: int, raw: bool = None):
         except Exception as e:
             console.print("[yellow red]Failed")
             console.print(e)
-            console.print(appt.__vaxup__())
+            console.print(appt.dict())
