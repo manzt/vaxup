@@ -30,13 +30,6 @@ FIELD_IDS = {
     9519174: "ethnicity",
     9519161: "sex",
     9519166: "has_health_insurance",
-    # Unused fields, we keep these for reference
-    9517774: "_elgibility",
-    9517872: "_certification",
-    9517897: "_allergic_reaction",
-    9519120: "_age",
-    9605979: "_link",
-    9605968: "_link",
     # VAX CONFIRMATION
     9715272: "vax_appointment_id",
 }
@@ -86,17 +79,22 @@ class AcuityAppointment(BaseModel):
     street_address: str
     city: str
     state: str
-    apt: str
+    apt: Optional[str]
     zip_code: str
     race: Race
     ethnicity: Ethnicity
     sex: Sex
     has_health_insurance: str
-    vax_appointment_id: str
+    # Custom form
+    vax_appointment_id: Optional[str]
 
     @validator("datetime")
     def strip_tzinfo(cls, dt):
         return dt.replace(tzinfo=None)
+
+    @validator("vax_appointment_id", "apt")
+    def empty_as_none(cls, v):
+        return None if v == "" else v
 
     @classmethod
     def from_api(cls, apt):

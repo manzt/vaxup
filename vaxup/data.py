@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, Optional
 from pydantic import validator
 from pydantic.types import PositiveInt
 
-from .acuity import AcuityAppointment, Location, Race, Ethnicity, Sex
+from .acuity import AcuityAppointment, Ethnicity, Location, Race, Sex
 
 # Improve intellisense for VSCode
 # https://github.com/microsoft/python-language-server/issues/1898
@@ -61,10 +61,6 @@ class VaxAppointment:
     @property
     def dob_str(self):
         return self.dob.strftime("%m/%d/%Y")
-
-    @validator("apt", "vax_appointment_id")
-    def empty_as_none(cls, v):
-        return None if v == "" else v
 
     @validator("state", pre=True)
     def cast_state(cls, v):

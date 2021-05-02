@@ -1,7 +1,7 @@
 import datetime
-from dataclasses import dataclass
 import os
 import sys
+from dataclasses import dataclass
 from itertools import groupby
 from typing import Iterable, List, Optional, Tuple
 
@@ -38,31 +38,6 @@ def get_vax_login():
     return username, password
 
 
-def create_row(appt: AcuityAppointment, issue_fields: Optional[List[str]] = None):
-    if issue_fields:
-        names = "\n".join(issue_fields)
-        values = "\n".join([getattr(appt, n) for n in issue_fields])
-    else:
-        names, values = "", ""
-
-    cancel_msg = "CANCELED" if appt.canceled else ""
-    vax_id = appt.vax_appointment_id or "[dim]-------"
-
-    if appt.vax_appointment_id is not None and appt.canceled:
-        cancel_msg = "[yellow bold]" + cancel_msg
-        vax_id = "[yellow bold]" + vax_id
-
-    return (
-        str(appt.id),
-        appt.location.name,
-        appt.datetime.strftime("%I:%M %p"),
-        names,
-        values,
-        vax_id,
-        cancel_msg,
-    )
-
-
 @dataclass
 class FieldUpdate:
     name: str
@@ -71,6 +46,28 @@ class FieldUpdate:
 
     def __rich_repr__(self):
         return f"{self.name}: [yellow]{self.old}[/yellow] -> [bold green]{self.new}[/bold green]"
+
+
+def create_row(appt: AcuityAppointment, issue_fields: Optional[List[str]] = None):
+    if issue_fields:
+        names = "\n".join(issue_fields)
+        values = "\n".join([getattr(appt, n) for n in issue_fields])
+    else:
+        names, values = "", ""
+    row = (
+        str(appt.id),
+        appt.location.name,
+        appt.datetime.strftime("%I:%M %p"),
+        names,
+        values,
+        appt.vax_appointment_id or "",
+        "CANCELED" if appt.canceled else "",
+    )
+    if not appt.vax_appointment_id and appt.canceled:
+        return map(lambda e: "[dim white]" + e, row)
+    if appt.vax_appointment_id and appt.canceled:
+        return map(lambda e: "[bold yellow]" + e, row)
+    return row
 
 
 def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> None:
@@ -92,7 +89,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     table.add_column("time", justify="center")
     table.add_column("field", justify="right", style="yellow")
     table.add_column("value", style="bold yellow")
-    table.add_column("vax id", style="green", justify="center")
+    table.add_column("vax id", style="bold green", justify="center")
     table.add_column("canceled", justify="center")
 
     issues: List[Tuple[AcuityAppointment, List[str]]] = []
@@ -179,7 +176,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                     console.log(
                         msg("Skipped", "yellow", "Appointment is canceled on Acuity.")
                     )
-                elif vax_appt.vax_appointment_id is not None:
+                elif vax_appt.vax_appointment_id:
                     console.log(
                         msg(
                             "Skipped",
