@@ -161,7 +161,7 @@ def set_vax_appointment_id(
     acuity_id: int, vax_appointment_id: str
 ) -> AcuityAppointment:
     return edit_appointment(
-        acuity_id=acuity_id, fields=[("vax_appointment_id", vax_appointment_id)]
+        acuity_id=acuity_id, fields={"vax_appointment_id": vax_appointment_id}
     )
 
 
