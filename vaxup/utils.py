@@ -15,6 +15,7 @@ from rich.table import Table
 from .acuity import (
     AcuityAppointment,
     ErrorNote,
+    Location,
     delete_vax_appointment_id,
     edit_appointment,
     get_appointment,
@@ -197,17 +198,17 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                     )
                 elif vax_appt.vax_note is not ErrorNote.NONE:
                     console.log(
-                        msg("Skipped", "yellow", f"VAX note: {vax_appt.vax_note}")
+                        msg(
+                            "Skipped",
+                            "yellow",
+                            f"[bold yellow]{vax_appt.vax_note.value}",
+                        )
                     )
                 else:
                     try:
                         vax_id = enroller.schedule_appointment(appt=vax_appt)
                         console.log(
-                            msg(
-                                "Success",
-                                "green",
-                                vax_id or "DRY_RUN - No VAX Confirmation.",
-                            )
+                            msg("Success", "green", f"Appt #: {vax_id or 'DRY_RUN'}")
                         )
                         if not dry_run:
                             set_vax_appointment_id(
