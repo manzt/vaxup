@@ -105,12 +105,19 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
                 table.add_row(*create_row(appt=appt), style="green")
         except ValidationError as e:
             issue_fields = [err["loc"][0] for err in e.errors()]
-            issues.append((appt, issue_fields))
             table.add_row(*create_row(appt=appt, issue_fields=issue_fields))
+            if not appt.canceled:
+                # only edit appts that aren't canceled
+                issues.append((appt, issue_fields))
+
+    # Just report active appointment numbers
+    num_appts = len([apt for apt in appts if not apt.canceled])
 
     # no errors
     if len(issues) == 0:
-        console.print(f"[bold green]All {num_appts} appointments passed[/bold green] 🎉")
+        console.print(
+            f"[bold green]All {num_appts} active appointments passed[/bold green] 🎉"
+        )
         if show_all:
             console.print(table)
         sys.exit(0)
@@ -185,8 +192,12 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                         msg(
                             "Skipped",
                             "yellow",
-                            "Appt #: " + vax_appt.vax_appointment_id,
+                            f"Appt #: {vax_appt.vax_appointment_id}",
                         )
+                    )
+                elif vax_appt.vax_note is not ErrorNote.NONE:
+                    console.log(
+                        msg("Skipped", "yellow", f"VAX note: {vax_appt.vax_note}")
                     )
                 else:
                     try:
