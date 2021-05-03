@@ -30,7 +30,7 @@ FIELD_IDS = {
 
 
 class ErrorNote(Enum):
-    SECOND_DOSE = "SECOND DOSE"
+    SECOND_DOSE = "SECOND DOSE SCHEDULED"
     TIME_NOT_AVAILABLE = "TIME NOT AVAILABLE"
     ALREADY_SCHEDULED = "ALREADY SCHEDULED"
     NONE = ""
@@ -173,10 +173,3 @@ def delete_vax_appointment_id(acuity_id: int) -> AcuityAppointment:
 
 def set_vax_note(acuity_id: int, note: ErrorNote) -> AcuityAppointment:
     return edit_appointment(acuity_id=acuity_id, fields={"vax_note": note.value})
-
-
-if __name__ == "__main__":
-    from rich import print
-
-    res = requests.get(url=f"{ACUITY_URL}/forms", auth=get_auth())
-    print(res.json())
