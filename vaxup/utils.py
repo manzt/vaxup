@@ -1,7 +1,7 @@
 import datetime
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from itertools import groupby
 from typing import Iterable, List, Optional, Tuple
 
@@ -15,7 +15,6 @@ from rich.table import Table
 from .acuity import (
     AcuityAppointment,
     ErrorNote,
-    Location,
     delete_vax_appointment_id,
     edit_appointment,
     get_appointment,
@@ -74,11 +73,10 @@ def create_row(appt: AcuityAppointment, issue_fields: Optional[List[str]] = None
     return row
 
 
-def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> None:
+def check(date: datetime.date, fix: bool = False) -> None:
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
         appts = get_appointments(date)
-        if show_all:
-            appts += get_appointments(date, canceled=True)
+        appts += get_appointments(date, canceled=True)
 
     num_appts = len(appts)
 
@@ -95,15 +93,14 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     table.add_column("value", style="bold yellow")
     table.add_column("vax id", style="bold green", justify="center")
     table.add_column("canceled", justify="center")
-    table.add_column("note", justify="center")
+    table.add_column("note")
 
     issues: List[Tuple[AcuityAppointment, List[str]]] = []
 
     for appt in appts:
         try:
             VaxAppointment.from_acuity(appt)
-            if show_all:
-                table.add_row(*create_row(appt=appt), style="green")
+            table.add_row(*create_row(appt=appt), style="green")
         except ValidationError as e:
             issue_fields = [err["loc"][0] for err in e.errors()]
             table.add_row(*create_row(appt=appt, issue_fields=issue_fields))
@@ -117,10 +114,9 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     # no errors
     if len(issues) == 0:
         console.print(
-            f"[bold green]All {num_appts} active appointments passed[/bold green] 🎉"
+            f"[bold green]All {num_appts} active appointments passed validation[/bold green] 🎉"
         )
-        if show_all:
-            console.print(table)
+        console.print(table)
         sys.exit(0)
 
     # handle errors
@@ -164,6 +160,9 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         vax_appts = [VaxAppointment.from_acuity(appt) for appt in appts]
     except ValidationError:
         console.print("[red bold]Error with Acuity data export[/red bold]")
+        console.print(
+            f"Run [yellow]vaxup check {date} --fix[/yellow] to fix interactively"
+        )
         sys.exit(1)
 
     username, password = get_vax_login()
@@ -260,21 +259,18 @@ def unenroll(acuity_id: int):
                 console.print(e)
 
 
-def check_id(acuity_id: int, raw: bool = None, add_note: bool = False):
+def check_id(acuity_id: int, add_note: bool = False):
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
         appt = get_appointment(acuity_id=acuity_id)
 
-    if raw:
-        console.print(appt.dict())
-    else:
-        try:
-            vax_appointment = VaxAppointment.from_acuity(appt)
-            console.print(f"[bold green]Success 🎉")
-            console.print(vax_appointment)
-        except Exception as e:
-            console.print("[yellow red]Failed")
-            console.print(e)
-            console.print(appt.dict())
+    console.print(appt.dict())
+    try:
+        VaxAppointment.from_acuity(appt)
+    except Exception:
+        console.print("[yellow bold]Error with some fields...")
+        console.print(
+            f"Run [yellow]vaxup check {appt.datetime.date().isoformat()} --fix[/yellow] to fix interactively"
+        )
 
     if add_note:
         name = Prompt.ask("Note", choices=[e.name for e in ErrorNote])
