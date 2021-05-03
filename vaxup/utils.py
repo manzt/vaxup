@@ -1,7 +1,7 @@
 import datetime
 import os
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from itertools import groupby
 from typing import Iterable, List, Optional, Tuple
 
