@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, Optional
 from pydantic import validator
 from pydantic.types import PositiveInt
 
-from .acuity import AcuityAppointment, Ethnicity, Location, Race, Sex
+from .acuity import AcuityAppointment, ErrorNote, Ethnicity, Location, Race, Sex
 
 # Improve intellisense for VSCode
 # https://github.com/microsoft/python-language-server/issues/1898
@@ -49,6 +49,7 @@ class VaxAppointment:
     has_health_insurance: bool
 
     vax_appointment_id: Optional[str]
+    vax_note: Optional[ErrorNote]
 
     @property
     def date_str(self):
