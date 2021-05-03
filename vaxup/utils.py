@@ -169,59 +169,64 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
     username, password = get_vax_login()
 
     with console.status("Initialing web-driver...") as status:
-        enroller = AuthorizedEnroller(username, password, dry_run)
+        with AuthorizedEnroller(username, password, dry_run) as enroller:
+            for location, location_appts in groupby_location(vax_appts=vax_appts):
+                status.update(
+                    status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
+                    spinner="bouncingBall",
+                    spinner_style="yellow",
+                )
+                for vax_appt in location_appts:
 
-        for location, location_appts in groupby_location(vax_appts=vax_appts):
-            status.update(
-                status=f"[yellow]Registering applicant(s) for {location.name}[/yellow]",
-                spinner="bouncingBall",
-                spinner_style="yellow",
-            )
-            for vax_appt in location_appts:
+                    def msg(tag: str, color: str, data=None):
+                        line = f"{location.name} {vax_appt.id} {vax_appt.time_str}"
+                        line = f"[{color} bold]{tag}[/{color} bold]\t- {line}"
+                        return line if not data else line + f" - {data}"
 
-                def msg(tag: str, color: str, data=None):
-                    line = f"{location.name} {vax_appt.id} {vax_appt.time_str}"
-                    line = f"[{color} bold]{tag}[/{color} bold]\t- {line}"
-                    return line if not data else line + f" - {data}"
-
-                if vax_appt.canceled:
-                    console.log(
-                        msg("Skipped", "yellow", "Appointment is canceled on Acuity.")
-                    )
-                elif vax_appt.vax_appointment_id:
-                    console.log(
-                        msg(
-                            "Skipped",
-                            "yellow",
-                            f"Appt #: {vax_appt.vax_appointment_id}",
-                        )
-                    )
-                elif vax_appt.vax_note is not ErrorNote.NONE:
-                    console.log(
-                        msg(
-                            "Skipped",
-                            "yellow",
-                            f"[bold yellow]{vax_appt.vax_note.value}",
-                        )
-                    )
-                else:
-                    try:
-                        vax_id = enroller.schedule_appointment(appt=vax_appt)
+                    if vax_appt.canceled:
                         console.log(
-                            msg("Success", "green", f"Appt #: {vax_id or 'DRY_RUN'}")
-                        )
-                        if not dry_run:
-                            set_vax_appointment_id(
-                                acuity_id=vax_appt.id, vax_appointment_id=vax_id
+                            msg(
+                                "Skipped",
+                                "yellow",
+                                "Appointment is canceled on Acuity.",
                             )
-                    except HTTPError as e:
-                        console.log(
-                            f"[yellow bold]WARNING[/yellow bold] failed tag {vax_appt.id} with Appointment #: {vax_id} on Acuity, but VAX registration was sucessful."
                         )
-                    except Exception as e:
-                        console.log(msg("Failure", "red"))
-                        console.log(e)
-                        console.print(vax_appt)
+                    elif vax_appt.vax_appointment_id:
+                        console.log(
+                            msg(
+                                "Skipped",
+                                "yellow",
+                                f"Appt #: {vax_appt.vax_appointment_id}",
+                            )
+                        )
+                    elif vax_appt.vax_note is not ErrorNote.NONE:
+                        console.log(
+                            msg(
+                                "Skipped",
+                                "yellow",
+                                f"[bold yellow]{vax_appt.vax_note.value}",
+                            )
+                        )
+                    else:
+                        try:
+                            vax_id = enroller.schedule_appointment(appt=vax_appt)
+                            console.log(
+                                msg(
+                                    "Success", "green", f"Appt #: {vax_id or 'DRY_RUN'}"
+                                )
+                            )
+                            if not dry_run:
+                                set_vax_appointment_id(
+                                    acuity_id=vax_appt.id, vax_appointment_id=vax_id
+                                )
+                        except HTTPError as e:
+                            console.log(
+                                f"[yellow bold]WARNING[/yellow bold] failed tag {vax_appt.id} with Appointment #: {vax_id} on Acuity, but VAX registration was sucessful."
+                            )
+                        except Exception as e:
+                            console.log(msg("Failure", "red"))
+                            console.log(e)
+                            console.print(vax_appt)
 
 
 def unenroll(acuity_id: int):
@@ -236,23 +241,23 @@ def unenroll(acuity_id: int):
     username, password = get_vax_login()
 
     with console.status("Initialing web-driver...") as status:
-        enroller = AuthorizedEnroller(username, password)
-        status.update("Cancelling ")
-        try:
-            enroller.cancel_appointment(appt=vax_appt)
-            delete_vax_appointment_id(acuity_id=vax_appt.id)
-            console.log(
-                "[bold green]Success![/bold green] cancelled appointment on VAX and removed confirmation number from Acuity"
-            )
-        except HTTPError as e:
-            console.log(
-                f"[yellow bold]WARNING[/yellow bold] Cancelled appointment on VAX but failed to update Acuity."
-            )
-        except Exception as e:
-            console.print(
-                "[bold red]Failure[/bold red] unable to cancel appointment on Vax"
-            )
-            console.print(e)
+        with AuthorizedEnroller(username=username, password=password) as enroller:
+            status.update("Cancelling ")
+            try:
+                enroller.cancel_appointment(appt=vax_appt)
+                delete_vax_appointment_id(acuity_id=vax_appt.id)
+                console.log(
+                    "[bold green]Success![/bold green] cancelled appointment on VAX and removed confirmation number from Acuity"
+                )
+            except HTTPError as e:
+                console.log(
+                    f"[yellow bold]WARNING[/yellow bold] Cancelled appointment on VAX but failed to update Acuity."
+                )
+            except Exception as e:
+                console.print(
+                    "[bold red]Failure[/bold red] unable to cancel appointment on Vax"
+                )
+                console.print(e)
 
 
 def check_id(acuity_id: int, raw: bool = None, add_note: bool = False):
