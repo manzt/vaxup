@@ -14,11 +14,13 @@ from rich.table import Table
 
 from .acuity import (
     AcuityAppointment,
+    ErrorNote,
     delete_vax_appointment_id,
     edit_appointment,
     get_appointment,
     get_appointments,
     set_vax_appointment_id,
+    set_vax_note,
 )
 from .data import VaxAppointment
 from .web import AuthorizedEnroller
@@ -62,6 +64,7 @@ def create_row(appt: AcuityAppointment, issue_fields: Optional[List[str]] = None
         values,
         appt.vax_appointment_id or "",
         "CANCELED" if appt.canceled else "",
+        appt.vax_note.value if appt.vax_note else "",
     )
     if not appt.vax_appointment_id and appt.canceled:
         return map(lambda e: "[dim white]" + e, row)
@@ -91,6 +94,7 @@ def check(date: datetime.date, fix: bool = False, show_all: bool = False) -> Non
     table.add_column("value", style="bold yellow")
     table.add_column("vax id", style="bold green", justify="center")
     table.add_column("canceled", justify="center")
+    table.add_column("note", justify="center")
 
     issues: List[Tuple[AcuityAppointment, List[str]]] = []
 
@@ -239,13 +243,12 @@ def unenroll(acuity_id: int):
             console.print(e)
 
 
-def check_id(acuity_id: int, raw: bool = None):
+def check_id(acuity_id: int, raw: bool = None, add_note: bool = False):
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
         appt = get_appointment(acuity_id=acuity_id)
 
     if raw:
         console.print(appt.dict())
-        console.print(appt.__vaxup__())
     else:
         try:
             vax_appointment = VaxAppointment.from_acuity(appt)
@@ -255,3 +258,7 @@ def check_id(acuity_id: int, raw: bool = None):
             console.print("[yellow red]Failed")
             console.print(e)
             console.print(appt.dict())
+
+    if add_note:
+        name = Prompt.ask("Note", choices=[e.name for e in ErrorNote])
+        set_vax_note(acuity_id=acuity_id, note=getattr(ErrorNote, name))

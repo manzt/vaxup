@@ -25,7 +25,15 @@ FIELD_IDS = {
     9519166: "has_health_insurance",
     # VAX CONFIRMATION
     9715272: "vax_appointment_id",
+    9730790: "vax_note",
 }
+
+
+class ErrorNote(Enum):
+    SECOND_DOSE = "SECOND DOSE"
+    TIME_NOT_AVAILABLE = "TIME NOT AVAILABLE"
+    ALREADY_SCHEDULED = "ALREADY SCHEDULED"
+    NONE = ""
 
 
 class Location(Enum):
@@ -80,12 +88,13 @@ class AcuityAppointment(BaseModel):
     has_health_insurance: str
     # Custom form
     vax_appointment_id: Optional[str]
+    vax_note: Optional[ErrorNote]
 
     @validator("datetime")
     def strip_tzinfo(cls, dt):
         return dt.replace(tzinfo=None)
 
-    @validator("vax_appointment_id", "apt")
+    @validator("vax_appointment_id", "apt", "vax_note")
     def empty_as_none(cls, v):
         return None if v == "" else v
 
@@ -160,3 +169,14 @@ def set_vax_appointment_id(
 
 def delete_vax_appointment_id(acuity_id: int) -> AcuityAppointment:
     return set_vax_appointment_id(acuity_id=acuity_id, vax_appointment_id="")
+
+
+def set_vax_note(acuity_id: int, note: ErrorNote) -> AcuityAppointment:
+    return edit_appointment(acuity_id=acuity_id, fields={"vax_note": note.value})
+
+
+if __name__ == "__main__":
+    from rich import print
+
+    res = requests.get(url=f"{ACUITY_URL}/forms", auth=get_auth())
+    print(res.json())
