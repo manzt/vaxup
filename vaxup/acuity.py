@@ -43,29 +43,6 @@ class Location(Enum):
     SOUTH_JAMAICA = "CHN Vaccination Site: New Jerusalem (South Jamaica)"
 
 
-class Race(Enum):
-    ASIAN = "Asian (including South Asian)"
-    BLACK = "Black including African American or Afro-Caribbean"
-    NATIVE_AMERICAN = "Native American or Alaska Native"
-    WHITE = "White"
-    PACIFIC_ISLANDER = "Native Hawaiian or Pacific Islander"
-    OTHER = "Other"
-    PREFER_NOT_TO_ANSWER = "Prefer not to answer"
-
-
-class Sex(Enum):
-    MALE = "Male"
-    FEMALE = "Female"
-    NEITHER = "Neither"
-    UNKNOWN = "Unknown"
-
-
-class Ethnicity(Enum):
-    LATINX = "Yes"
-    NOT_LATINX = "No"
-    PERFER_NOT_TO_ANSWER = "Prefer not to answer"
-
-
 class AcuityAppointment(BaseModel):
     id: PositiveInt
     first_name: str = Field(alias="firstName")
@@ -82,9 +59,9 @@ class AcuityAppointment(BaseModel):
     state: str
     apt: Optional[str]
     zip_code: str
-    race: Race
-    ethnicity: Ethnicity
-    sex: Sex
+    race: str
+    ethnicity: str
+    sex: str
     has_health_insurance: str
     # Custom form
     vax_appointment_id: Optional[str]

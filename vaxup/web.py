@@ -8,8 +8,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .acuity import Ethnicity, Location, Race, Sex
-from .data import VaxAppointment
+from .acuity import Location
+from .data import VaxAppointment, Race, Sex, Ethnicity
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
