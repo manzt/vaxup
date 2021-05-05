@@ -2,7 +2,7 @@ import datetime
 import json
 import os
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 import requests
 from pydantic import BaseModel, validator
@@ -130,10 +130,10 @@ def edit_appointment(
     return AcuityAppointment.from_api(res.json())
 
 
-def get_appointment(acuity_id: int) -> AcuityAppointment:
+def get_appointment(acuity_id: int, raw: bool = False) -> Dict[str, Any]:
     res = requests.get(url=f"{ACUITY_URL}/appointments/{acuity_id}", auth=get_auth())
     res.raise_for_status()
-    return AcuityAppointment.from_api(res.json())
+    return res.json()
 
 
 def set_vax_appointment_id(

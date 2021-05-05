@@ -259,11 +259,15 @@ def unenroll(acuity_id: int):
                 console.print(e)
 
 
-def check_id(acuity_id: int, add_note: bool = False):
+def check_id(acuity_id: int, add_note: bool = False, raw: bool = False):
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
-        appt = get_appointment(acuity_id=acuity_id)
+        raw_appt = get_appointment(acuity_id=acuity_id)
+    appt = AcuityAppointment.from_api(raw_appt)
 
-    console.print(appt.dict())
+    if raw:
+        console.print(raw_appt)
+    else:
+        console.print(appt.dict())
     try:
         VaxAppointment.from_acuity(appt)
     except Exception:
