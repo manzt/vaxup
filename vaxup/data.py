@@ -21,7 +21,8 @@ VAX_EMAIL_REGEX = re.compile(
     r"^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-]+)((\.[a-zA-Z]{2,5})+)$"
 )
 
-
+# Extends Enum with a `match` method that checks if the string
+# value for the Enum is within another string
 class FuzzyEnum(Enum):
     @classmethod
     def match(cls, v: str):
@@ -98,6 +99,8 @@ class VaxAppointment:
 
     @validator("race", "sex", "ethnicity", pre=True)
     def match_enum(cls, v, **kwargs):
+        # Use the custom match method to account for bilingual options on Acuity.
+        # Race.match("Other | Otro") == Race.match("Other") # True
         enum = {"race": Race, "sex": Sex, "ethnicity": Ethnicity}[kwargs["field"].name]
         return v if isinstance(v, enum) else enum.match(v)
 
