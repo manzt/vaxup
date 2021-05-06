@@ -2,13 +2,12 @@ import datetime
 import json
 import os
 from enum import Enum
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 import requests
 from pydantic import BaseModel, validator
 from pydantic.fields import Field
 from pydantic.types import PositiveInt
-
 
 s = requests.Session()
 s.auth = (os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"])
@@ -89,6 +88,9 @@ class AcuityAppointment(BaseModel):
         }
         return cls(**apt)
 
+    def __rich_repr__(self):
+        return self.dict().items()
+
 
 def get_appointments(
     date: datetime.date, canceled: bool = False, max_per_response: int = 5000
@@ -142,7 +144,7 @@ def set_vax_appointment_id(acuity_id: int, vax_id: str) -> AcuityAppointment:
 
 
 def delete_vax_appointment_id(acuity_id: int) -> AcuityAppointment:
-    return set_vax_appointment_id(acuity_id=acuity_id, vax_appointment_id="")
+    return set_vax_appointment_id(acuity_id=acuity_id, vax_id="")
 
 
 def set_vax_note(acuity_id: int, note: ErrorNote) -> AcuityAppointment:

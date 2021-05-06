@@ -216,7 +216,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                             )
                             if not dry_run:
                                 set_vax_appointment_id(
-                                    acuity_id=vax_appt.id, vax_appointment_id=vax_id
+                                    acuity_id=vax_appt.id, vax_id=vax_id
                                 )
                         except HTTPError as e:
                             console.log(
@@ -231,6 +231,8 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
 def unenroll(acuity_id: int):
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
         appt = get_appointment(acuity_id=acuity_id)
+        appt = AcuityAppointment.from_api(appt)
+
     vax_appt = VaxAppointment.from_acuity(appt)
 
     if vax_appt.vax_appointment_id is None:
@@ -267,14 +269,15 @@ def check_id(acuity_id: int, add_note: bool = False, raw: bool = False):
     if raw:
         console.print(raw_appt)
     else:
-        console.print(appt.dict())
-    try:
-        VaxAppointment.from_acuity(appt)
-    except Exception:
-        console.print("[yellow bold]Error with some fields...")
-        console.print(
-            f"Run [yellow]vaxup check {appt.datetime.date().isoformat()} --fix[/yellow] to fix interactively"
-        )
+        console.print(appt)
+
+        try:
+            VaxAppointment.from_acuity(appt)
+        except Exception:
+            console.print("[yellow bold]Error with some fields...")
+            console.print(
+                f"Run [yellow]vaxup check {appt.datetime.date().isoformat()} --fix[/yellow] to fix interactively"
+            )
 
     if add_note:
         name = Prompt.ask("Note", choices=[e.name for e in ErrorNote])

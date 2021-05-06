@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from .acuity import Location
-from .data import VaxAppointment, Race, Sex, Ethnicity
+from .data import Ethnicity, Race, Sex, VaxAppointment
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
