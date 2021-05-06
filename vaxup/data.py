@@ -21,18 +21,8 @@ VAX_EMAIL_REGEX = re.compile(
     r"^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-]+)((\.[a-zA-Z]{2,5})+)$"
 )
 
-# Extends Enum with a `match` method that checks if the string
-# value for the Enum is within another string
-class FuzzyEnum(Enum):
-    @classmethod
-    def match(cls, v: str):
-        for item in cls:
-            if item.value in v:
-                return item
-        raise ValueError("No matches")
 
-
-class Race(FuzzyEnum):
+class Race(Enum):
     ASIAN = "Asian (including South Asian)"
     BLACK = "Black including African American or Afro-Caribbean"
     NATIVE_AMERICAN = "Native American or Alaska Native"
@@ -42,14 +32,14 @@ class Race(FuzzyEnum):
     PREFER_NOT_TO_ANSWER = "Prefer not to answer"
 
 
-class Sex(FuzzyEnum):
+class Sex(Enum):
     MALE = "Male"
     FEMALE = "Female"
     NEITHER = "Neither"
     UNKNOWN = "Unknown"
 
 
-class Ethnicity(FuzzyEnum):
+class Ethnicity(Enum):
     LATINX = "Yes"
     NOT_LATINX = "No"
     PERFER_NOT_TO_ANSWER = "Prefer not to answer"
@@ -98,23 +88,39 @@ class VaxAppointment:
         return self.dob.strftime("%m/%d/%Y")
 
     @validator("race", "sex", "ethnicity", pre=True)
-    def match_enum(cls, v, **kwargs):
-        # Use the custom match method to account for bilingual options on Acuity.
-        # Race.match("Other | Otro") == Race.match("Other") # True
-        enum = {"race": Race, "sex": Sex, "ethnicity": Ethnicity}[kwargs["field"].name]
-        return v if isinstance(v, enum) else enum.match(v)
+    def strip_translation(cls, v):
+        # The dropdown options on Acuity were changed
+        #
+        # from "<OPTION>"
+        # to   "<OPTION> | <OPTION_TRANSLATION>"
+        #
+        # In order to be both backward and forward compatible,
+        # we strip the translation (if present) and use the
+        # exisiting pydantic validation.
+        if isinstance(v, str) and "|" in v:
+            # "Other | Otro" -> "Other"
+            return v.split("|")[0].strip()
+        return v
 
     @validator("state", pre=True)
-    def cast_state(cls, v):
+    def coerce_state(cls, v):
         # No validation for "state" in Acuity.
-        # This function safely determines whether
-        upper = str(v).strip().upper()
-        if upper in {"NJ", "NY"}:
-            return upper
-        if "YORK" in upper:
-            return "NY"
-        if "JERSEY" in upper:
-            return "NJ"
+        # This greedly coerces a string into "NJ" or "NY"
+        # based on some simple heuristics.
+        if isinstance(v, str):
+            upper = v.strip().upper()
+            if upper in {"NJ", "NY"}:
+                return upper
+            if "YORK" in upper:
+                return "NY"
+            if "JERSEY" in upper:
+                return "NJ"
+        return v
+
+    @validator("dob", pre=True)
+    def instance_dt(cls, v):
+        if isinstance(v, str):
+            return datetime.strptime(v.strip(), "%m/%d/%Y")
         return v
 
     @validator("email")
@@ -123,22 +129,17 @@ class VaxAppointment:
             raise ValueError("Email doesn't match regex on VAX.")
         return v
 
-    @validator("phone", pre=True)
-    def cast_phone(cls, v):
-        if isinstance(v, int):
-            if len(str(v)) != 10:
-                raise ValueError("Phone number is longer than 10 digits")
-            return v
-        # Since it's not a required field, only provide number if its exactly 10 digits
-        v = re.sub(r"[^0-9]+", "", str(v))[-10:]  # remove non-numeric characters
-        v = v[-10:]  # and last 10 elements (or less)
-        return v if len(v) == 10 else None
-
-    @validator("dob", pre=True)
-    def instance_dt(cls, v):
-        if isinstance(v, datetime):
-            return v
-        return datetime.strptime(v.strip(), "%m/%d/%Y")
+    @validator("phone")
+    def check_length(cls, v):
+        length = len(str(v))
+        if length > 10:
+            # Might be able to fix, raise as an error
+            raise ValueError("Phone number is longer than 10 digits")
+        if length < 10:
+            # Not clear how to fix, default to `None` since
+            # it's an optional field on VAX.
+            return None
+        return v
 
     @classmethod
     def from_acuity(cls, apt: AcuityAppointment):

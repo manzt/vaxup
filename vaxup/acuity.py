@@ -113,12 +113,23 @@ def edit_appointment(
     notes: Optional[str] = None,
 ) -> AcuityAppointment:
     data = {}
+
     if fields:
-        id_map = {v: k for k, v in FIELD_IDS.items()}
-        fields = [{"id": id_map[k], "value": v} for k, v in fields.items()]
-        data |= {"fields": fields}
+        fields = fields.copy()
+
+        # Fields are not from intake froms
+        for key in ("email", "phone"):
+            if key in fields:
+                data |= {key: fields.pop(key)}
+
+        if len(fields) > 0:
+            id_map = {v: k for k, v in FIELD_IDS.items()}
+            fields = [{"id": id_map[k], "value": v} for k, v in fields.items()]
+            data |= {"fields": fields}
+
     if isinstance(notes, str):
         data |= {"notes": notes}
+
     res = requests.put(
         url=f"{ACUITY_URL}/appointments/{acuity_id}",
         auth=get_auth(),
