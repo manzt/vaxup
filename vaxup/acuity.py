@@ -107,28 +107,20 @@ def get_appointments(
     return [AcuityAppointment.from_api(a) for a in res.json()]
 
 
-def edit_appointment(
-    acuity_id: int,
-    fields: Optional[Dict[str, str]] = None,
-    notes: Optional[str] = None,
-) -> AcuityAppointment:
+def edit_appointment(acuity_id: int, fields: Dict[str, str]) -> AcuityAppointment:
+    assert len(fields) > 0, "Must provide dict with fields to update."
     data = {}
+    fields = fields.copy()
 
-    if fields:
-        fields = fields.copy()
+    # Fields are not from intake froms
+    for key in ("email", "phone", "notes"):
+        if key in fields:
+            data |= {key: fields.pop(key)}
 
-        # Fields are not from intake froms
-        for key in ("email", "phone"):
-            if key in fields:
-                data |= {key: fields.pop(key)}
-
-        if len(fields) > 0:
-            id_map = {v: k for k, v in FIELD_IDS.items()}
-            fields = [{"id": id_map[k], "value": v} for k, v in fields.items()]
-            data |= {"fields": fields}
-
-    if isinstance(notes, str):
-        data |= {"notes": notes}
+    if len(fields) > 0:
+        id_map = {v: k for k, v in FIELD_IDS.items()}
+        fields = [{"id": id_map[k], "value": v} for k, v in fields.items()]
+        data |= {"fields": fields}
 
     res = requests.put(
         url=f"{ACUITY_URL}/appointments/{acuity_id}",
@@ -141,18 +133,14 @@ def edit_appointment(
     return AcuityAppointment.from_api(res.json())
 
 
-def get_appointment(acuity_id: int, raw: bool = False) -> Dict[str, Any]:
+def get_appointment(acuity_id: int) -> Dict[str, Any]:
     res = requests.get(url=f"{ACUITY_URL}/appointments/{acuity_id}", auth=get_auth())
     res.raise_for_status()
     return res.json()
 
 
-def set_vax_appointment_id(
-    acuity_id: int, vax_appointment_id: str
-) -> AcuityAppointment:
-    return edit_appointment(
-        acuity_id=acuity_id, fields={"vax_appointment_id": vax_appointment_id}
-    )
+def set_vax_appointment_id(acuity_id: int, vax_id: str) -> AcuityAppointment:
+    return edit_appointment(acuity_id=acuity_id, fields={"vax_appointment_id": vax_id})
 
 
 def delete_vax_appointment_id(acuity_id: int) -> AcuityAppointment:
