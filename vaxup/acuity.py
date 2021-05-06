@@ -2,12 +2,16 @@ import datetime
 import json
 import os
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 
 import requests
 from pydantic import BaseModel, validator
 from pydantic.fields import Field
 from pydantic.types import PositiveInt
+
+
+s = requests.Session()
+s.auth = (os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"])
 
 ACUITY_URL = "https://acuityscheduling.com/api/v1"
 
@@ -86,16 +90,11 @@ class AcuityAppointment(BaseModel):
         return cls(**apt)
 
 
-def get_auth() -> Tuple[str, str]:
-    return os.environ["ACUITY_USER_ID"], os.environ["ACUITY_API_KEY"]
-
-
 def get_appointments(
     date: datetime.date, canceled: bool = False, max_per_response: int = 5000
 ) -> List[AcuityAppointment]:
-    res = requests.get(
+    res = s.get(
         url=f"{ACUITY_URL}/appointments",
-        auth=get_auth(),
         params={
             "max": max_per_response,
             "minDate": f"{date}T00:00",
@@ -122,9 +121,8 @@ def edit_appointment(acuity_id: int, fields: Dict[str, str]) -> AcuityAppointmen
         fields = [{"id": id_map[k], "value": v} for k, v in fields.items()]
         data |= {"fields": fields}
 
-    res = requests.put(
+    res = s.put(
         url=f"{ACUITY_URL}/appointments/{acuity_id}",
-        auth=get_auth(),
         data=json.dumps(data),
         params={"admin": "true"},
     )
@@ -134,7 +132,7 @@ def edit_appointment(acuity_id: int, fields: Dict[str, str]) -> AcuityAppointmen
 
 
 def get_appointment(acuity_id: int) -> Dict[str, Any]:
-    res = requests.get(url=f"{ACUITY_URL}/appointments/{acuity_id}", auth=get_auth())
+    res = s.get(url=f"{ACUITY_URL}/appointments/{acuity_id}")
     res.raise_for_status()
     return res.json()
 
