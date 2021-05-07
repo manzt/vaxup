@@ -3,7 +3,7 @@ import os
 import sys
 from dataclasses import dataclass
 from itertools import groupby
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, Optional
 
 from pydantic import ValidationError
 from requests.exceptions import HTTPError
@@ -12,20 +12,12 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from .acuity import (
-    AcuityAppointment,
-    ErrorNote,
-    delete_vax_appointment_id,
-    edit_appointment,
-    get_appointment,
-    get_appointments,
-    set_vax_appointment_id,
-    set_vax_note,
-)
+from .acuity import AcuityAPI, AcuityAppointment, ErrorNote
 from .data import VaxAppointment
 from .web import AuthorizedEnroller
 
 console = Console()
+api = AcuityAPI()
 
 
 def get_vax_login():
@@ -50,7 +42,7 @@ class FieldUpdate:
         return f"{self.name}: [yellow]{self.old}[/yellow] -> [bold green]{self.new}[/bold green]"
 
 
-def create_row(appt: AcuityAppointment, issue_fields: Optional[List[str]] = None):
+def create_row(appt: AcuityAppointment, issue_fields: Optional[list[str]] = None):
     if issue_fields:
         names = "\n".join(issue_fields)
         values = "\n".join([getattr(appt, n) for n in issue_fields])
@@ -75,8 +67,8 @@ def create_row(appt: AcuityAppointment, issue_fields: Optional[List[str]] = None
 
 def check(date: datetime.date, fix: bool = False) -> None:
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
-        appts = get_appointments(date)
-        appts += get_appointments(date, canceled=True)
+        appts = api.get_appointments(date)
+        appts += api.get_appointments(date, canceled=True)
 
     num_appts = len(appts)
 
@@ -95,7 +87,7 @@ def check(date: datetime.date, fix: bool = False) -> None:
     table.add_column("canceled", justify="center")
     table.add_column("note")
 
-    issues: List[Tuple[AcuityAppointment, List[str]]] = []
+    issues: list[tuple[AcuityAppointment, list[str]]] = []
 
     for appt in appts:
         try:
@@ -130,7 +122,7 @@ def check(date: datetime.date, fix: bool = False) -> None:
         )
     else:
         for appt, fields in issues:
-            updates: List[FieldUpdate] = []
+            updates: list[FieldUpdate] = []
             for field in fields:
                 value = getattr(appt, field)
                 update = Prompt.ask(field, default=value, console=console)
@@ -138,7 +130,7 @@ def check(date: datetime.date, fix: bool = False) -> None:
                     updates.append(FieldUpdate(field, value, update))
             text = "\n".join(map(lambda f: f.__rich_repr__(), updates))
             if len(updates) > 0 and Confirm.ask(text, console=console):
-                edit_appointment(appt.id, fields={f.name: f.new for f in updates})
+                api.edit_appointment(appt.id, fields={f.name: f.new for f in updates})
             console.print()
 
 
@@ -150,7 +142,7 @@ def groupby_location(vax_appts: Iterable[VaxAppointment]):
 def enroll(date: datetime.date, dry_run: bool = False) -> None:
 
     with console.status(f"Fetching appointments for {date}", spinner="earth"):
-        appts = get_appointments(date)
+        appts = api.get_appointments(date)
 
     if len(appts) == 0:
         console.print(f"No appointments to schedule for {date} :calendar:")
@@ -215,9 +207,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                                 )
                             )
                             if not dry_run:
-                                set_vax_appointment_id(
-                                    acuity_id=vax_appt.id, vax_id=vax_id
-                                )
+                                api.set_vax_id(id=vax_appt.id, vax_id=vax_id)
                         except HTTPError as e:
                             console.log(
                                 f"[yellow bold]WARNING[/yellow bold] failed tag {vax_appt.id} with Appointment #: {vax_id} on Acuity, but VAX registration was sucessful."
@@ -230,8 +220,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
 
 def unenroll(acuity_id: int):
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
-        appt = get_appointment(acuity_id=acuity_id)
-        appt = AcuityAppointment.from_api(appt)
+        appt = api.get_appointment(acuity_id)
 
     vax_appt = VaxAppointment.from_acuity(appt)
 
@@ -246,7 +235,7 @@ def unenroll(acuity_id: int):
             status.update("Cancelling ")
             try:
                 enroller.cancel_appointment(appt=vax_appt)
-                delete_vax_appointment_id(acuity_id=vax_appt.id)
+                api.set_vax_id(id=vax_appt.id, vax_id=None)
                 console.log(
                     "[bold green]Success![/bold green] cancelled appointment on VAX and removed confirmation number from Acuity"
                 )
@@ -263,22 +252,18 @@ def unenroll(acuity_id: int):
 
 def check_id(acuity_id: int, add_note: bool = False, raw: bool = False):
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
-        raw_appt = get_appointment(acuity_id=acuity_id)
-    appt = AcuityAppointment.from_api(raw_appt)
+        appt = api.get_appointment(acuity_id)
 
-    if raw:
-        console.print(raw_appt)
-    else:
-        console.print(appt)
+    console.print(appt)
 
-        try:
-            VaxAppointment.from_acuity(appt)
-        except Exception:
-            console.print("[yellow bold]Error with some fields...")
-            console.print(
-                f"Run [yellow]vaxup check {appt.datetime.date().isoformat()} --fix[/yellow] to fix interactively"
-            )
+    try:
+        VaxAppointment.from_acuity(appt)
+    except Exception:
+        console.print("[yellow bold]Error with some fields...")
+        console.print(
+            f"Run [yellow]vaxup check {appt.datetime.date().isoformat()} --fix[/yellow] to fix interactively"
+        )
 
     if add_note:
         name = Prompt.ask("Note", choices=[e.name for e in ErrorNote])
-        set_vax_note(acuity_id=acuity_id, note=getattr(ErrorNote, name))
+        api.set_vax_note(id=acuity_id, note=getattr(ErrorNote, name))
