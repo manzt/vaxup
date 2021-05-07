@@ -74,7 +74,7 @@ class AcuityAppointment(BaseModel):
     def strip_tzinfo(cls, dt):
         return dt.replace(tzinfo=None)
 
-    @validator("vax_appointment_id", "apt", "vax_note")
+    @validator("vax_appointment_id", "apt", "vax_note", "phone")
     def empty_as_none(cls, v):
         return None if v == "" else v
 
