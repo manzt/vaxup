@@ -1,5 +1,4 @@
 import datetime
-import json
 import os
 from dataclasses import dataclass, field
 from enum import Enum
@@ -115,7 +114,7 @@ class AcuityAPI:
         return f"{base}/{path}"
 
     def get_appointment(self, id: int) -> AcuityAppointment:
-        res = self.session.get(url=self.url(f"/appointments/{id}"))
+        res = self.session.get(self.url(f"/appointments/{id}"))
         return self._unnest(res.json())
 
     def get_appointments(
@@ -127,7 +126,7 @@ class AcuityAPI:
             "maxDate": f"{date}T23:59",
             "canceled": "true" if canceled else "false",
         }
-        res = self.session.get(url=self.url("/appointments"), params=params)
+        res = self.session.get(self.url("/appointments"), params=params)
         return [self._unnest(d) for d in res.json()]
 
     def edit_appointment(self, id: int, fields: dict[str, str]) -> AcuityAppointment:
@@ -148,9 +147,7 @@ class AcuityAPI:
             data |= {"fields": fields}
 
         res = self.session.put(
-            url=self.url(f"/appointments/{id}"),
-            data=json.dumps(data),
-            params={"admin": "true"},
+            self.url(f"/appointments/{id}"), json=data, params={"admin": "true"}
         )
 
         return self._unnest(res.json())
