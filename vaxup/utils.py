@@ -38,31 +38,55 @@ class FieldUpdate:
     old: str
     new: str
 
-    def __rich_repr__(self):
+    def __rich__(self):
         return f"{self.name}: [yellow]{self.old}[/yellow] -> [bold green]{self.new}[/bold green]"
 
 
-def create_row(appt: AcuityAppointment, issue_fields: Optional[list[str]] = None):
-    if issue_fields:
-        names = "\n".join(issue_fields)
-        values = "\n".join([getattr(appt, n) for n in issue_fields])
-    else:
-        names, values = "", ""
-    row = (
-        str(appt.id),
-        appt.location.name,
-        appt.datetime.strftime("%I:%M %p"),
-        names,
-        values,
-        appt.vax_appointment_id or "",
-        "CANCELED" if appt.canceled else "",
-        appt.vax_note.value if appt.vax_note else "",
-    )
-    if not appt.vax_appointment_id and appt.canceled:
-        return map(lambda e: "[dim white]" + e, row)
-    if appt.vax_appointment_id and appt.canceled:
-        return map(lambda e: "[bold yellow]" + e, row)
-    return row
+class VaxupTable:
+    def __init__(self):
+        table = Table(show_header=True, box=box.SIMPLE_HEAD)
+        table.add_column("appt. id", style="magenta")
+        table.add_column("location")
+        table.add_column("time", justify="center")
+        table.add_column("field", justify="right", style="yellow")
+        table.add_column("value", style="bold yellow")
+        table.add_column("vax id", style="bold green", justify="center")
+        table.add_column("canceled", justify="center")
+        table.add_column("note")
+        self._table = table
+
+    def add_row(
+        self,
+        appt: AcuityAppointment,
+        issue_fields: Optional[list[str]] = None,
+        **kwargs,
+    ) -> None:
+        if issue_fields:
+            names = "\n".join(issue_fields)
+            values = "\n".join([getattr(appt, n) for n in issue_fields])
+        else:
+            names, values = "", ""
+
+        row = (
+            str(appt.id),
+            appt.location.name,
+            appt.datetime.strftime("%I:%M %p"),
+            names,
+            values,
+            appt.vax_appointment_id or "",
+            "CANCELED" if appt.canceled else "",
+            appt.vax_note.value if appt.vax_note else "",
+        )
+
+        if not appt.vax_appointment_id and appt.canceled:
+            row = map(lambda e: "[dim white]" + e, row)
+        elif appt.vax_appointment_id and appt.canceled:
+            row = map(lambda e: "[bold yellow]" + e, row)
+
+        self._table.add_row(*row, **kwargs)
+
+    def __rich__(self):
+        return self._table
 
 
 def check(date: datetime.date, fix: bool = False) -> None:
@@ -77,25 +101,16 @@ def check(date: datetime.date, fix: bool = False) -> None:
         console.print(f"No appointments scheduled for {date} :calendar:")
         sys.exit(0)
 
-    table = Table(show_header=True, box=box.SIMPLE_HEAD)
-    table.add_column("appt. id", style="magenta")
-    table.add_column("location")
-    table.add_column("time", justify="center")
-    table.add_column("field", justify="right", style="yellow")
-    table.add_column("value", style="bold yellow")
-    table.add_column("vax id", style="bold green", justify="center")
-    table.add_column("canceled", justify="center")
-    table.add_column("note")
-
     issues: list[tuple[AcuityAppointment, list[str]]] = []
 
+    table = VaxupTable()
     for appt in appts:
         try:
             VaxAppointment.from_acuity(appt)
-            table.add_row(*create_row(appt=appt), style="green")
+            table.add_row(appt, style="green")
         except ValidationError as e:
             issue_fields = [err["loc"][0] for err in e.errors()]
-            table.add_row(*create_row(appt=appt, issue_fields=issue_fields))
+            table.add_row(appt, issue_fields=issue_fields)
             if not appt.canceled:
                 # only edit appts that aren't canceled
                 issues.append((appt, issue_fields))
@@ -128,7 +143,7 @@ def check(date: datetime.date, fix: bool = False) -> None:
                 update = Prompt.ask(field, default=value, console=console)
                 if update != value:
                     updates.append(FieldUpdate(field, value, update))
-            text = "\n".join(map(lambda f: f.__rich_repr__(), updates))
+            text = "\n".join(map(lambda f: f.__rich__(), updates))
             if len(updates) > 0 and Confirm.ask(text, console=console):
                 api.edit_appointment(appt.id, fields={f.name: f.new for f in updates})
             console.print()
@@ -218,7 +233,7 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
                             console.print(vax_appt)
 
 
-def unenroll(acuity_id: int):
+def unenroll(acuity_id: int) -> None:
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
         appt = api.get_appointment(acuity_id)
 
@@ -250,7 +265,7 @@ def unenroll(acuity_id: int):
                 console.print(e)
 
 
-def check_id(acuity_id: int, add_note: bool = False, raw: bool = False):
+def check_id(acuity_id: int, add_note: bool = False) -> None:
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
         appt = api.get_appointment(acuity_id)
 
