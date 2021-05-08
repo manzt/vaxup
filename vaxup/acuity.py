@@ -27,7 +27,7 @@ FIELD_IDS = {
 }
 
 
-def unnest_forms(forms: list[dict[str, Any]]):
+def unnest_forms(forms: list[dict[str, Any]]) -> dict[str, str]:
     # unnest acuity forms into single key-value dict
     return {
         FIELD_IDS[v["fieldID"]]: v["value"]
@@ -108,7 +108,7 @@ class AcuityAPI:
         forms = unnest_forms(apt.pop("forms"))
         return AcuityAppointment(**(apt | forms))
 
-    def url(self, path: str):
+    def url(self, path: str) -> str:
         base = self.base_url.rstrip("/")
         path = path.lstrip("/")
         return f"{base}/{path}"
@@ -132,7 +132,7 @@ class AcuityAPI:
     def edit_appointment(self, id: int, fields: dict[str, str]) -> AcuityAppointment:
         assert len(fields) > 0, "Must provide dict with fields to update."
 
-        data = {}
+        data: dict[str, Any] = {}
         fields = fields.copy()
 
         # Top-level fields not in custom intake form

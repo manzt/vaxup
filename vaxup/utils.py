@@ -258,7 +258,8 @@ def check_id(acuity_id: int, add_note: bool = False, raw: bool = False):
 
     try:
         VaxAppointment.from_acuity(appt)
-    except Exception:
+    except Exception as e:
+        console.print(e)
         console.print("[yellow bold]Error with some fields...")
         console.print(
             f"Run [yellow]vaxup check {appt.datetime.date().isoformat()} --fix[/yellow] to fix interactively"

@@ -1,25 +1,19 @@
 import re
-from datetime import datetime
+import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import Literal, Optional
 
-from pydantic import validator
+from pydantic import BaseModel, validator
 from pydantic.types import PositiveInt
 
 from .acuity import AcuityAppointment, ErrorNote, Location
-
-# Improve intellisense for VSCode
-# https://github.com/microsoft/python-language-server/issues/1898
-if TYPE_CHECKING:
-    from dataclasses import dataclass
-else:
-    from pydantic.dataclasses import dataclass as dataclass
-
 
 # Copied from VAX website <input name='email' pattern='....' />
 VAX_EMAIL_REGEX = re.compile(
     r"^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-]+)((\.[a-zA-Z]{2,5})+)$"
 )
+DATE_FORMAT = "%m/%d/%Y"
+TIME_FORMAT = "%I:%M %p"
 
 
 class Race(Enum):
@@ -45,23 +39,18 @@ class Ethnicity(Enum):
     PERFER_NOT_TO_ANSWER = "Prefer not to answer"
 
 
-class Config:
-    anystr_strip_whitespace = True
-
-
-@dataclass(config=Config)
-class VaxAppointment:
+class VaxAppointment(BaseModel):
     id: PositiveInt
-    datetime: datetime
     first_name: str
     last_name: str
     phone: Optional[PositiveInt]
     email: str
-    canceled: bool
+    datetime: datetime.datetime
     location: Location
+    canceled: bool
 
     # Form validation
-    dob: datetime
+    dob: datetime.date
     street_address: str
     city: str
     state: Literal["NY", "NJ"]
@@ -75,17 +64,20 @@ class VaxAppointment:
     vax_appointment_id: Optional[str]
     vax_note: Optional[ErrorNote]
 
+    class Config:
+        anystr_strip_whitespace = True
+
     @property
     def date_str(self):
-        return self.datetime.strftime("%m/%d/%Y")
+        return self.datetime.strftime(DATE_FORMAT)
 
     @property
     def time_str(self):
-        return self.datetime.strftime("%I:%M %p")
+        return self.datetime.strftime(TIME_FORMAT)
 
     @property
     def dob_str(self):
-        return self.dob.strftime("%m/%d/%Y")
+        return self.dob.strftime(DATE_FORMAT)
 
     @validator("race", "sex", "ethnicity", pre=True)
     def strip_translation(cls, v):
@@ -118,9 +110,9 @@ class VaxAppointment:
         return v
 
     @validator("dob", pre=True)
-    def instance_dt(cls, v):
+    def date_from_acuity_str(cls, v):
         if isinstance(v, str):
-            return datetime.strptime(v.strip(), "%m/%d/%Y")
+            return datetime.datetime.strptime(v.strip(), DATE_FORMAT).date()
         return v
 
     @validator("email")
@@ -144,3 +136,6 @@ class VaxAppointment:
     @classmethod
     def from_acuity(cls, apt: AcuityAppointment):
         return cls(**apt.dict())
+
+    def __rich_repr__(self):
+        return self.dict().items()
