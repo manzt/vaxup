@@ -135,7 +135,7 @@ class AcuityAPI:
         data = {}
         fields = fields.copy()
 
-        # Fields are not from intake froms
+        # Top-level fields not in custom intake form
         for key in ("email", "phone", "notes"):
             if key in fields:
                 data |= {key: fields.pop(key)}
@@ -143,8 +143,8 @@ class AcuityAPI:
         # Iterate through remaining form fields (if any)
         if len(fields) > 0:
             id_map = {v: k for k, v in FIELD_IDS.items()}
-            fields = [{"id": id_map[k], "value": v} for k, v in fields.items()]
-            data |= {"fields": fields}
+            fields_list = [{"id": id_map[k], "value": v} for k, v in fields.items()]
+            data |= {"fields": fields_list}
 
         res = self.session.put(
             self.url(f"/appointments/{id}"), json=data, params={"admin": "true"}
