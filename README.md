@@ -1,6 +1,6 @@
 # vaxup
 
-WIP 👷‍ - A bot to batch fill vaccine registration froms for authorized enrollers in NYC.
+WIP 👷‍ - A bot to batch fill vaccine registration forms for authorized enrollers in NYC.
 
 
 ### Requirements

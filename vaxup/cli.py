@@ -21,7 +21,7 @@ def unenroll(args: argparse.Namespace) -> None:
 
 
 def check_id(args: argparse.Namespace) -> None:
-    check_appointment_id(acuity_id=args.acuity_id, add_note=args.add_note, raw=args.raw)
+    check_appointment_id(acuity_id=args.acuity_id, add_note=args.add_note)
 
 
 def main() -> None:
@@ -50,7 +50,6 @@ def main() -> None:
     parser_check_id = subparsers.add_parser("check-id")
     parser_check_id.add_argument("acuity_id", type=int)
     parser_check_id.add_argument("--add-note", action="store_true")
-    parser_check_id.add_argument("--raw", action="store_true")
     parser_check_id.set_defaults(func=check_id)
 
     ns = parser.parse_args(sys.argv[1:])
