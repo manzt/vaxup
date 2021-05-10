@@ -1,6 +1,6 @@
 # vaxup
 
-WIP 👷‍ - A bot to batch fill vaccine registration forms for authorized enrollers in NYC.
+WIP 👷 – A bot to batch fill vaccine registration forms for authorized enrollers in NYC.
 
 
 ### Requirements
@@ -58,7 +58,7 @@ $ vaxup enroll 2021-05-04 # [--dry-run]
 Cancels an Acuity appointment that has already been registered on VAX website.
 This should be used sparingly, and typically in the case where an Acuity 
 appointment is canceled. Will try to cancel the corresponding VAX appointment,
-and remove the VAX ID from Acuity if sucessful.
+and remove the VAX ID from Acuity if successful.
 
 ```bash
 $ vaxup unenroll 10000030

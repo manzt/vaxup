@@ -26,6 +26,15 @@ LOCATION = {
     Location.SOUTH_JAMAICA: "0013d000002jkSKAAY",
 }
 
+# Values are the 'aria-label' for the appointment card selections
+# e.g. <div aria-label='...' ...>
+APPT_CARD = {
+    Location.EAST_NY: "Church of God of East NY 905 Sutter Ave Brooklyn NY 11207 United States",
+    Location.HARLEM: "Convent Avenue Baptist Church 420 W 145th St. New York NY 10031 United States",
+    Location.WASHINGTON_HEIGHTS: "Fort Washington Collegiate Church 729 W 181st Street New York NY 10033 United States",
+    Location.SOUTH_JAMAICA: "New Jerusalem Worship Center 12205 Smith St. Jamaica NY 11434 United States",
+}
+
 # Values are the "data-label" attribute for the clickable span on website.
 # e.g. <span data-label='Other'...>
 RACE = {
@@ -93,7 +102,7 @@ class AuthorizedEnroller:
         data_id = LOCATION[location]
         self._find_element(f"//lightning-button[@data-id='{data_id}']").click()
 
-    def _select_date(self, date: str, time: str) -> None:
+    def _select_date(self, date: str, time: str, location: Location) -> None:
         # Checks if date in middle of page matches our desired date.
         # If not, we need to input a new timestamp and wait until the server
         # responds with new options.
@@ -113,7 +122,9 @@ class AuthorizedEnroller:
 
         # Find time slot and click
         # Time must be formatted: HH:MM AM/PM
-        self._find_element(f"//lightning-formatted-time[text()='{time}']").click()
+        self._find_element(
+            f"//div[@aria-label='{APPT_CARD[location]}']//child::lightning-formatted-time[text()='{time}']"
+        ).click()
 
     def _click_next(self, first: bool = False) -> None:
         path = "//section/button"
@@ -213,7 +224,10 @@ class AuthorizedEnroller:
             self._login(location=appt.location)
         else:
             self.driver.get(URL)
-        self._select_date(date=appt.date_str, time=appt.time_str)
+
+        self._select_date(
+            date=appt.date_str, time=appt.time_str, location=appt.location
+        )
         self._click_next(first=True)
 
         # select elgibility
