@@ -1,6 +1,6 @@
 import datetime
 import os
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional, Union
 
