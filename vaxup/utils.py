@@ -277,12 +277,11 @@ def check_id(acuity_id: int, add_note: bool = False) -> None:
 
 
 def cancel(acuity_id: int):
-    name = Prompt.ask(
-        "Reason?", choices=[e.name for e in ErrorNote], default=ErrorNote.NONE.name
-    )
-    note = getattr(ErrorNote, name)
-    cancel_note = (
-        """Hello,
+    cancel_note = None
+    notes = None
+
+    if Confirm.ask("Send eligibility message?", console=console):
+        cancel_note = """Hello,
 
 Thank you for your interest in scheduling your COVID-19 Vaccination at a Community Healthcare Network Vaccination Site!
 
@@ -295,11 +294,12 @@ Best,
 Charlie
 Community Healthcare Network Scheduling Team
 """
-        if note == ErrorNote.NOT_ELIGIBLE
-        else None
-    )
+        notes = "Not Eligible. Email sent to applicant."
+
     with console.status(
         f"Canceling appointment on Acuity for id: {acuity_id}", spinner="earth"
     ):
         api.cancel_appointment(id=acuity_id, cancel_note=cancel_note)
-        api.set_vax_note(id=acuity_id, note=getattr(ErrorNote, name))
+        if notes:
+            # Tag with internal note if provided.
+            api.edit_appointment(id=acuity_id, fields={"notes": notes})

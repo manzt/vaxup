@@ -58,6 +58,7 @@ class AcuityAppointment(BaseModel):
     last_name: str = Field(alias="lastName")
     phone: Optional[str]
     email: str
+    notes: str
     datetime: datetime.datetime
     location: Location = Field(alias="calendar")
     canceled: bool

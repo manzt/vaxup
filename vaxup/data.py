@@ -14,7 +14,7 @@ VAX_EMAIL_REGEX = re.compile(
 )
 DATE_FORMAT = "%m/%d/%Y"
 TIME_FORMAT = "%I:%M %p"
-AGE_CUTOFF = 16
+MIN_AGE = 16
 
 
 class Race(Enum):
@@ -119,10 +119,7 @@ class VaxAppointment(BaseModel):
     @validator("dob")
     def is_elgible(cls, v, values):
         appt_date = values["datetime"].date()
-        elgible_date = datetime.date(
-            appt_date.year - AGE_CUTOFF, appt_date.month, appt_date.day
-        )
-        if elgible_date < v:
+        if datetime.date(appt_date.year - MIN_AGE, appt_date.month, appt_date.day) < v:
             raise ValueError("Not eligible.")
         return v
 
