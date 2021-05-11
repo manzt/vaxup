@@ -2,6 +2,7 @@ import argparse
 import datetime
 import sys
 
+from .utils import cancel as cancel_appointment
 from .utils import check as check_appointments
 from .utils import check_id as check_appointment_id
 from .utils import enroll as enroll_appointments
@@ -22,6 +23,10 @@ def unenroll(args: argparse.Namespace) -> None:
 
 def check_id(args: argparse.Namespace) -> None:
     check_appointment_id(acuity_id=args.acuity_id, add_note=args.add_note)
+
+
+def cancel(args: argparse.Namespace) -> None:
+    cancel_appointment(acuity_id=args.acuity_id)
 
 
 def main() -> None:
@@ -51,6 +56,11 @@ def main() -> None:
     parser_check_id.add_argument("acuity_id", type=int)
     parser_check_id.add_argument("--add-note", action="store_true")
     parser_check_id.set_defaults(func=check_id)
+
+    # cancel
+    parser_cancel = subparsers.add_parser("cancel")
+    parser_cancel.add_argument("acuity_id", type=int)
+    parser_cancel.set_defaults(func=cancel)
 
     ns = parser.parse_args(sys.argv[1:])
     ns.func(ns)

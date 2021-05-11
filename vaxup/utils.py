@@ -271,15 +271,35 @@ def check_id(acuity_id: int, add_note: bool = False) -> None:
 
     console.print(appt)
 
-    try:
-        VaxAppointment.from_acuity(appt)
-    except Exception as e:
-        console.print(e)
-        console.print("[yellow bold]Error with some fields...")
-        console.print(
-            f"Run [yellow]vaxup check {appt.datetime.date().isoformat()} --fix[/yellow] to fix interactively"
-        )
-
     if add_note:
         name = Prompt.ask("Note", choices=[e.name for e in ErrorNote])
+        api.set_vax_note(id=acuity_id, note=getattr(ErrorNote, name))
+
+
+def cancel(acuity_id: int):
+    name = Prompt.ask(
+        "Reason?", choices=[e.name for e in ErrorNote], default=ErrorNote.NONE.name
+    )
+    note = getattr(ErrorNote, name)
+    cancel_note = (
+        """Hello,
+
+Thank you for your interest in scheduling your COVID-19 Vaccination at a Community Healthcare Network Vaccination Site!
+
+You may have seen the news that the FDA approved the Pfizer vaccine for children ages 12-15. However, this is not a change to New York State policy, as the vaccine needs to be approved by the Advisory Committee on Immunization Practices (ACIP), which is meeting on Wednesday, May 12.
+
+As such, as of Tuesday, May 11, we cannot currently accept appointments for 12-15 year olds. Please check the scheduling link for your selected site starting on Wednesday, May 12. You will be permitted to sign up for an appointment as soon as the eligibility requirements change.
+
+Best,
+
+Charlie
+Community Healthcare Network Scheduling Team
+"""
+        if note == ErrorNote.NOT_ELIGIBLE
+        else None
+    )
+    with console.status(
+        f"Canceling appointment on Acuity for id: {acuity_id}", spinner="earth"
+    ):
+        api.cancel_appointment(id=acuity_id, cancel_note=cancel_note)
         api.set_vax_note(id=acuity_id, note=getattr(ErrorNote, name))

@@ -118,9 +118,12 @@ class VaxAppointment(BaseModel):
 
     @validator("dob")
     def is_elgible(cls, v, values):
-        td = values["datetime"].date() - v
-        if (td.days / 365.25) < AGE_CUTOFF:
-            raise ValueError("Too young.")
+        appt_date = values["datetime"].date()
+        elgible_date = datetime.date(
+            appt_date.year - AGE_CUTOFF, appt_date.month, appt_date.day
+        )
+        if elgible_date < v:
+            raise ValueError("Not eligible.")
         return v
 
     @validator("email")

@@ -41,6 +41,7 @@ class ErrorNote(Enum):
     SECOND_DOSE = "SECOND DOSE SCHEDULED"
     TIME_NOT_AVAILABLE = "TIME NOT AVAILABLE"
     ALREADY_SCHEDULED = "ALREADY SCHEDULED"
+    NOT_ELIGIBLE = "NOT ELIGIBLE"
     NONE = ""
 
 
@@ -149,7 +150,15 @@ class AcuityAPI:
         res = self.session.put(
             self.url(f"/appointments/{id}"), json=data, params={"admin": "true"}
         )
+        return self._unnest(res.json())
 
+    def cancel_appointment(
+        self, id: int, cancel_note: Optional[str] = None
+    ) -> AcuityAppointment:
+        data = {} if cancel_note is None else {"cancelNote": cancel_note}
+        res = self.session.put(
+            self.url(f"/appointments/{id}/cancel"), json=data, params={"admin": "true"}
+        )
         return self._unnest(res.json())
 
     def set_vax_id(self, id: int, vax_id: Union[str, None]) -> AcuityAppointment:
