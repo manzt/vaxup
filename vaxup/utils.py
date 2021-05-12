@@ -265,9 +265,13 @@ def unenroll(acuity_id: int) -> None:
                 console.print(e)
 
 
-def check_id(acuity_id: int, add_note: bool = False) -> None:
+def check_id(acuity_id: int, add_note: bool = False, raw: bool = False) -> None:
     with console.status(f"Fetching appointment for id: {acuity_id}", spinner="earth"):
-        appt = api.get_appointment(acuity_id)
+        if raw:
+            res = api.session.get(api.url(f"/appointments/{acuity_id}"))
+            appt = res.json()
+        else:
+            appt = api.get_appointment(acuity_id)
 
     console.print(appt)
 

@@ -10,7 +10,7 @@ from .acuity import AcuityAppointment, ErrorNote, Location
 
 # Copied from VAX website <input name='email' pattern='....' />
 VAX_EMAIL_REGEX = re.compile(
-    r"^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-]+)((\.[a-zA-Z]{2,5})+)$"
+    r"(?!.{81})^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-]+)((\.[a-zA-Z]{2,63})+)$"
 )
 DATE_FORMAT = "%m/%d/%Y"
 TIME_FORMAT = "%I:%M %p"
