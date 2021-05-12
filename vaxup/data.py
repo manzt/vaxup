@@ -14,7 +14,7 @@ VAX_EMAIL_REGEX = re.compile(
 )
 DATE_FORMAT = "%m/%d/%Y"
 TIME_FORMAT = "%I:%M %p"
-MIN_AGE = 16
+MIN_AGE = 12
 
 
 class Race(Enum):
