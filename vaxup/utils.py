@@ -164,7 +164,12 @@ def enroll(date: datetime.date, dry_run: bool = False) -> None:
         sys.exit(0)
 
     try:
-        vax_appts = [VaxAppointment.from_acuity(appt) for appt in appts]
+        vax_appts = [
+            VaxAppointment.from_acuity(appt)
+            for appt in appts
+            if appt.vax_note is not ErrorNote.INVALID_FORM
+        ]
+
     except ValidationError:
         console.print("[red bold]Error with Acuity data export[/red bold]")
         console.print(
