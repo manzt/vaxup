@@ -289,12 +289,12 @@ def cancel(acuity_id: int):
 
 Thank you for your interest in scheduling your COVID-19 Vaccination at a Community Healthcare Network Vaccination Site!
 
-You may have seen the news that the FDA approved the Pfizer vaccine for children ages 12-15. However, this is not a change to New York State policy, as the vaccine needs to be approved by the Advisory Committee on Immunization Practices (ACIP), which is meeting on Wednesday, May 12.
+Children ages 11 and younger are NOT currently eligible for the COVID-19 (Pfizer) vaccine.
 
-As such, as of Tuesday, May 11, we cannot currently accept appointments for 12-15 year olds. Please check the scheduling link for your selected site starting on Wednesday, May 12. You will be permitted to sign up for an appointment as soon as the eligibility requirements change.
+You will be permitted to sign up for an appointment as soon as the CDC eligibility requirements change.
+
 
 Best,
-
 Charlie
 Community Healthcare Network Scheduling Team
 """
