@@ -9,9 +9,13 @@ from pydantic.types import PositiveInt
 from .acuity import AcuityAppointment, ErrorNote, Location
 
 # Copied from VAX website <input name='email' pattern='....' />
-VAX_EMAIL_REGEX = re.compile(
-    r"(?!.{81})^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-]+)((\.[a-zA-Z]{2,63})+)$"
-)
+REGEXES = {
+    "email": re.compile(
+        r"(?!.{81})^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-]+)((\.[a-zA-Z]{2,63})+)$"
+    ),
+    "zip_code": re.compile(r"^[0-9]+$"),
+}
+
 DATE_FORMAT = "%m/%d/%Y"
 TIME_FORMAT = "%I:%M %p"
 MIN_AGE = 12
@@ -54,9 +58,9 @@ class VaxAppointment(BaseModel):
     dob: datetime.date
     street_address: str
     city: str
-    state: Literal["NY", "NJ"]
+    state: Literal["NY", "NJ", "CT"]
     apt: Optional[str]
-    zip_code: PositiveInt
+    zip_code: str
     race: Race
     ethnicity: Ethnicity
     sex: Sex
@@ -102,7 +106,7 @@ class VaxAppointment(BaseModel):
         # based on some simple heuristics.
         if isinstance(v, str):
             upper = v.strip().upper()
-            if upper in {"NJ", "NY"}:
+            if upper in {"NJ", "NY", "CT"}:
                 return upper
             if "YORK" in upper:
                 return "NY"
@@ -123,10 +127,11 @@ class VaxAppointment(BaseModel):
             raise ValueError("Not eligible.")
         return v
 
-    @validator("email")
-    def email_regex(cls, v):
-        if VAX_EMAIL_REGEX.fullmatch(v) is None:
-            raise ValueError("Email doesn't match regex on VAX.")
+    @validator("email", "zip_code")
+    def regex_match(cls, v, **kwargs):
+        regex = REGEXES[kwargs["field"].name]
+        if regex.fullmatch(v) is None:
+            raise ValueError("Field doesn't match regex on VAX.")
         return v
 
     @validator("phone")
