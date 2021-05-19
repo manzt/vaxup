@@ -43,6 +43,7 @@ class ErrorNote(Enum):
     ALREADY_SCHEDULED = "ALREADY SCHEDULED"
     NOT_ELIGIBLE = "NOT ELIGIBLE"
     INVALID_FORM = "INVALID FORM"
+    WALK_IN = "TO WALK IN"
     NONE = ""
 
 
@@ -81,6 +82,11 @@ class AcuityAppointment(BaseModel):
     @validator("datetime")
     def strip_tzinfo(cls, dt):
         return dt.replace(tzinfo=None)
+
+    # @validator("vax_note", pre=True)
+    def log(cls, v):
+        print(v)
+        return v
 
     @validator("vax_appointment_id", "apt", "vax_note", "phone")
     def empty_as_none(cls, v):
