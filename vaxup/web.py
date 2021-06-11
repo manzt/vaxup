@@ -193,8 +193,10 @@ class AuthorizedEnroller:
         find_input("gender").click()
         find_dropdown_item(GENDER[appt.gender]).click()
 
+        # Has disability button
+        value = 'yes' if appt.has_disability else 'no'
         el = self._find_element(
-            f"//input[@name='haveDisability' and @value='{'yes' if appt.has_disability else 'no'}']"
+            f"//input[@name='haveDisability' and @value='{value}']/following-sibling::label"
         )
         el.click()
 
