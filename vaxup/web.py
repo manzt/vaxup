@@ -177,29 +177,26 @@ class AuthorizedEnroller:
             find_input("aptNo").send_keys(appt.apt)
 
         # Dropdowns. First action opens dropdown, second selects item from list.
-        find_dropdown_item = create_finder(
-            "//lightning-base-combobox-item[@data-value='{}']"
-        )
 
-        find_input("state").click()
-        find_dropdown_item(appt.state).click()
+        find_item = create_finder("//div[@id='{}']/child::lightning-base-combobox-item[@data-value='{}']")
+        def click_dropdown(name: str, value: str):
+            el = find_input(name)
+            el.click()
+            find_item(el.get_attribute("aria-controls"), value).click()
 
-        find_input("ethencity").click()
-        find_dropdown_item(ETHNICITY[appt.ethnicity]).click()
-
-        find_input("sex").click()
-        find_dropdown_item(SEX[appt.sex]).click()
-
-        find_input("gender").click()
-        find_dropdown_item(GENDER[appt.gender]).click()
+        click_dropdown("state", appt.state)
+        click_dropdown("ethencity", ETHNICITY[appt.ethnicity]) # Typo on VAX website
+        click_dropdown("sex", SEX[appt.sex])
+        click_dropdown("gender", GENDER[appt.gender])
 
         find_label = create_finder(
             "//input[@name='{}' and @value='{}']/following-sibling::label"
         )
-        # Race checkbox
-        find_label("races", RACE[appt.race]).click()
         # Find has disability button
         find_label("haveDisability", "yes" if appt.has_disability else "no").click()
+        # TODO: Element is no longer clickable? Try removing focus first?
+        # Race checkbox
+        find_label("races", RACE[appt.race]).click()
 
     def _health_insurance(self, has_health_insurance: bool) -> None:
         tmp = "//input[@name='{}' and @value='{}']/following-sibling::label"
