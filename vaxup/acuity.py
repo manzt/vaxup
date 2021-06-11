@@ -20,6 +20,7 @@ FIELD_IDS = {
     9519140: "race",
     9519174: "ethnicity",
     9519161: "sex",
+    9942615: "gender",
     9519166: "has_health_insurance",
     # VAX CONFIRMATION
     9715272: "vax_appointment_id",

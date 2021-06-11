@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from .acuity import Location
-from .data import Ethnicity, Race, Sex, VaxAppointment
+from .data import Ethnicity, Gender, Race, Sex, VaxAppointment
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
@@ -53,7 +53,20 @@ SEX = {
     Sex.MALE: "Male",
     Sex.FEMALE: "Female",
     Sex.NEITHER: "Neither male or female",
+    Sex.PREFER_NOT_TO_ANSWER: "Prefer not to answer",
     Sex.UNKNOWN: "Unknown",
+}
+
+GENDER = {
+    Gender.WOMAN: "Woman",
+    Gender.MAN: "Man",
+    Gender.TRANS_WOMAN: "Transgender woman",
+    Gender.TRANS_MAN: "Transgender man",
+    Gender.NON_BINARY: "Non-binary person",
+    Gender.GENDERQUEER: "Genderqueer person",
+    Gender.NOT_LISTED: "A gender identity not listed",
+    Gender.UNKNOWN: "Unknown",
+    Gender.PREFER_NOT_TO_ANSWER: "Prefer not to answer",
 }
 
 # Values are the "data-value" attribute for the dropdown on website.
@@ -176,6 +189,9 @@ class AuthorizedEnroller:
 
         find_input("sex").click()
         find_dropdown_item(SEX[appt.sex]).click()
+
+        find_input("gender").click()
+        find_dropdown_item(GENDER[appt.gender]).click()
 
         # Race checkbox
         find_checkbox = create_finder(
