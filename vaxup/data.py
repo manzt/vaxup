@@ -34,7 +34,7 @@ class Race(Enum):
 class Sex(Enum):
     MALE = "Male"
     FEMALE = "Female"
-    NEITHER = "Neither"
+    NEITHER = "Neither Female nor Male"
     UNKNOWN = "Unknown"
     PREFER_NOT_TO_ANSWER = "Prefer not to answer"
 
@@ -78,6 +78,7 @@ class VaxAppointment(BaseModel):
     ethnicity: Ethnicity
     sex: Sex
     gender: Gender = Gender.UNKNOWN
+    has_disability: bool = False
     has_health_insurance: bool
 
     vax_appointment_id: Optional[str]

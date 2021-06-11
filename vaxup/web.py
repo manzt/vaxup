@@ -52,7 +52,7 @@ RACE = {
 SEX = {
     Sex.MALE: "Male",
     Sex.FEMALE: "Female",
-    Sex.NEITHER: "Neither male or female",
+    Sex.NEITHER: "Neither Female nor Male",
     Sex.PREFER_NOT_TO_ANSWER: "Prefer not to answer",
     Sex.UNKNOWN: "Unknown",
 }
@@ -192,6 +192,11 @@ class AuthorizedEnroller:
 
         find_input("gender").click()
         find_dropdown_item(GENDER[appt.gender]).click()
+
+        el = self._find_element(
+            f"//input[@name='haveDisability' and @value='{'yes' if appt.has_disability else 'no'}']"
+        )
+        el.click()
 
         # Race checkbox
         find_checkbox = create_finder(

@@ -21,6 +21,7 @@ FIELD_IDS = {
     9519174: "ethnicity",
     9519161: "sex",
     9942615: "gender",
+    9942827: "has_disability",
     9519166: "has_health_insurance",
     # VAX CONFIRMATION
     9715272: "vax_appointment_id",
@@ -75,6 +76,8 @@ class AcuityAppointment(BaseModel):
     race: str
     ethnicity: str
     sex: str
+    gender: str = "Unknown"
+    has_disability = "no"
     has_health_insurance: str
     # Custom form
     vax_appointment_id: Optional[str]
@@ -88,6 +91,14 @@ class AcuityAppointment(BaseModel):
     def log(cls, v):
         print(v)
         return v
+
+    @validator("gender")
+    def set_gender(cls, v):
+        return "Unknown" if v == "" else v
+
+    @validator("has_disability")
+    def set_has_disability(cls, v):
+        return "no" if v == "" else v
 
     @validator("vax_appointment_id", "apt", "vax_note", "phone")
     def empty_as_none(cls, v):
@@ -122,6 +133,10 @@ class AcuityAPI:
         base = self.base_url.rstrip("/")
         path = path.lstrip("/")
         return f"{base}/{path}"
+
+    def get_forms(self):
+        res = self.session.get(self.url("/forms"))
+        return res.json()
 
     def get_appointment(self, id: int) -> AcuityAppointment:
         res = self.session.get(self.url(f"/appointments/{id}"))
@@ -176,3 +191,10 @@ class AcuityAPI:
 
     def set_vax_note(self, id: int, note: ErrorNote) -> AcuityAppointment:
         return self.edit_appointment(id=id, fields={"vax_note": note.value})
+
+
+if __name__ == "__main__":
+    from rich import print
+
+    api = AcuityAPI()
+    print(api.get_forms())
