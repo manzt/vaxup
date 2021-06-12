@@ -34,8 +34,21 @@ class Race(Enum):
 class Sex(Enum):
     MALE = "Male"
     FEMALE = "Female"
-    NEITHER = "Neither"
+    NEITHER = "Neither Female nor Male"
     UNKNOWN = "Unknown"
+    PREFER_NOT_TO_ANSWER = "Prefer not to answer"
+
+
+class Gender(Enum):
+    WOMAN = "Woman"
+    MAN = "Man"
+    TRANS_WOMAN = "Transgender woman"
+    TRANS_MAN = "Transgender man"
+    NON_BINARY = "Non-binary person"
+    GENDERQUEER = "Genderqueer person"
+    NOT_LISTED = "A gender identity not listed"
+    UNKNOWN = "Unknown"
+    PREFER_NOT_TO_ANSWER = "Prefer not to answer"
 
 
 class Ethnicity(Enum):
@@ -64,6 +77,8 @@ class VaxAppointment(BaseModel):
     race: Race
     ethnicity: Ethnicity
     sex: Sex
+    gender: Gender = Gender.UNKNOWN
+    has_disability: bool = False
     has_health_insurance: bool
 
     vax_appointment_id: Optional[str]
@@ -84,7 +99,7 @@ class VaxAppointment(BaseModel):
     def dob_str(self):
         return self.dob.strftime(DATE_FORMAT)
 
-    @validator("race", "sex", "ethnicity", pre=True)
+    @validator("race", "sex", "ethnicity", "gender", pre=True)
     def strip_translation(cls, v):
         # The dropdown options on Acuity were changed
         #

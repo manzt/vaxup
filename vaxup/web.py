@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from .acuity import Location
-from .data import Ethnicity, Race, Sex, VaxAppointment
+from .data import Ethnicity, Gender, Race, Sex, VaxAppointment
 
 URL = "https://vaxmgmt.force.com/authorizedEnroller/s/"
 LOGIN_URL = f"{URL}login/"
@@ -52,8 +52,21 @@ RACE = {
 SEX = {
     Sex.MALE: "Male",
     Sex.FEMALE: "Female",
-    Sex.NEITHER: "Neither male or female",
+    Sex.NEITHER: "Neither Female nor Male",
+    Sex.PREFER_NOT_TO_ANSWER: "Prefer not to answer",
     Sex.UNKNOWN: "Unknown",
+}
+
+GENDER = {
+    Gender.WOMAN: "Woman",
+    Gender.MAN: "Man",
+    Gender.TRANS_WOMAN: "Transgender woman",
+    Gender.TRANS_MAN: "Transgender man",
+    Gender.NON_BINARY: "Non-binary person",
+    Gender.GENDERQUEER: "Genderqueer person",
+    Gender.NOT_LISTED: "A gender identity not listed",
+    Gender.UNKNOWN: "Unknown",
+    Gender.PREFER_NOT_TO_ANSWER: "Prefer not to answer",
 }
 
 # Values are the "data-value" attribute for the dropdown on website.
@@ -136,8 +149,8 @@ class AuthorizedEnroller:
 
     def _fill_personal_information(self, appt: VaxAppointment) -> None:
         def create_finder(xpath_template: str):
-            def find_element(value: str):
-                xpath = xpath_template.format(value)
+            def find_element(*values: list[str]):
+                xpath = xpath_template.format(*values)
                 return self._find_element(xpath=xpath)
 
             return find_element
@@ -164,24 +177,26 @@ class AuthorizedEnroller:
             find_input("aptNo").send_keys(appt.apt)
 
         # Dropdowns. First action opens dropdown, second selects item from list.
-        find_dropdown_item = create_finder(
-            "//lightning-base-combobox-item[@data-value='{}']"
+
+        find_item = create_finder("//div[@id='{}']/child::lightning-base-combobox-item[@data-value='{}']")
+        def click_dropdown(name: str, value: str):
+            el = find_input(name)
+            el.click()
+            find_item(el.get_attribute("aria-controls"), value).click()
+
+        click_dropdown("state", appt.state)
+        click_dropdown("ethencity", ETHNICITY[appt.ethnicity]) # Typo on VAX website
+        click_dropdown("sex", SEX[appt.sex])
+        click_dropdown("gender", GENDER[appt.gender])
+
+        find_label = create_finder(
+            "//input[@name='{}' and @value='{}']/following-sibling::label"
         )
-
-        find_input("state").click()
-        find_dropdown_item(appt.state).click()
-
-        find_input("ethencity").click()
-        find_dropdown_item(ETHNICITY[appt.ethnicity]).click()
-
-        find_input("sex").click()
-        find_dropdown_item(SEX[appt.sex]).click()
-
+        # Find has disability button
+        find_label("haveDisability", "yes" if appt.has_disability else "no").click()
+        # TODO: Element is no longer clickable? Try removing focus first?
         # Race checkbox
-        find_checkbox = create_finder(
-            "//input[@name='races' and @value='{}']/following-sibling::label"
-        )
-        find_checkbox(RACE[appt.race]).click()
+        find_label("races", RACE[appt.race]).click()
 
     def _health_insurance(self, has_health_insurance: bool) -> None:
         tmp = "//input[@name='{}' and @value='{}']/following-sibling::label"
