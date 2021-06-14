@@ -192,10 +192,18 @@ class AuthorizedEnroller:
         find_label = create_finder(
             "//input[@name='{}' and @value='{}']/following-sibling::label"
         )
+
+        # TODO: Element is no longer clickable? 
+        # The sleep calls are added to ensure the elements are clickable.
+        # This is a hack, and I'm not sure why there variability over when this 
+        # does and does not work.
+
         # Find has disability button
+        sleep(0.5)
         find_label("haveDisability", "yes" if appt.has_disability else "no").click()
-        # TODO: Element is no longer clickable? Try removing focus first?
+
         # Race checkbox
+        sleep(0.5)
         find_label("races", RACE[appt.race]).click()
 
     def _health_insurance(self, has_health_insurance: bool) -> None:
