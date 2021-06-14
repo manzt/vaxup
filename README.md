@@ -21,6 +21,10 @@ $ cd vaxup && pip install .
 The CLI requires `ACUITY_API_KEY` and `ACUITY_USER_ID` environment 
 variables for interacting with the Acuity API.
 
+```bash
+$ source .env # load environment variables
+```
+
 #### `check`
 
 Print a table of appointments from Acuity in the console. Validates 
