@@ -99,7 +99,7 @@ class AuthorizedEnroller:
 
         # Defaults for driver
         self.driver.set_window_position(0, 0)
-        self.driver.set_window_size(1024, 700)
+        self.driver.set_window_size(1024, 900)
         self.driver.implicitly_wait(5)
 
     def __enter__(self):
@@ -178,14 +178,17 @@ class AuthorizedEnroller:
 
         # Dropdowns. First action opens dropdown, second selects item from list.
 
-        find_item = create_finder("//div[@id='{}']/child::lightning-base-combobox-item[@data-value='{}']")
+        find_item = create_finder(
+            "//div[@id='{}']/child::lightning-base-combobox-item[@data-value='{}']"
+        )
+
         def click_dropdown(name: str, value: str):
             el = find_input(name)
             el.click()
             find_item(el.get_attribute("aria-controls"), value).click()
 
         click_dropdown("state", appt.state)
-        click_dropdown("ethencity", ETHNICITY[appt.ethnicity]) # Typo on VAX website
+        click_dropdown("ethencity", ETHNICITY[appt.ethnicity])  # Typo on VAX website
         click_dropdown("sex", SEX[appt.sex])
         click_dropdown("gender", GENDER[appt.gender])
 
@@ -193,17 +196,10 @@ class AuthorizedEnroller:
             "//input[@name='{}' and @value='{}']/following-sibling::label"
         )
 
-        # TODO: Element is no longer clickable? 
-        # The sleep calls are added to ensure the elements are clickable.
-        # This is a hack, and I'm not sure why there variability over when this 
-        # does and does not work.
-
         # Find has disability button
-        sleep(0.5)
         find_label("haveDisability", "yes" if appt.has_disability else "no").click()
 
         # Race checkbox
-        sleep(0.5)
         find_label("races", RACE[appt.race]).click()
 
     def _health_insurance(self, has_health_insurance: bool) -> None:
