@@ -1,9 +1,9 @@
-# vaxup
-
-A bot to batch fill vaccine registration forms for authorized enrollers in NYC.
-
 > _**Update 2021-07-01**: This project is no longer maintained. The City of New York has discontinued VAX, and this bot has served its purpose._ 
 
+
+# vaxup 🤖
+
+A bot to batch fill vaccine registration forms for authorized enrollers in NYC.
 
 ### Requirements
 
